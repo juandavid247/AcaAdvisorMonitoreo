@@ -15,8 +15,22 @@ Write-Host "==========================================================" -Foregro
 
 $ServerHost = "192.168.0.155"
 $OrgId = "OjUpRAB"
-$AgentEmail = "F8:89:D2:F5:4A:87_@Yolaine.OjUpRAB"
 $AgentCryptoPassword = "43d7dbcf81bad521552d1b59e619cced:ede717306619e874100560153a96ecc3"
+
+# Deteccion automatica de MAC activa (Soporte Ethernet / Wi-Fi)
+$activeMac = ""
+try {
+    $adapter = Get-NetAdapter -ErrorAction SilentlyContinue | Where-Object { $_.Status -eq 'Up' } | Select-Object -First 1
+    if ($adapter -and $adapter.MacAddress) {
+        $activeMac = ($adapter.MacAddress -replace '-', ':').ToLower()
+    }
+} catch {}
+
+if ($activeMac -eq "f8:89:d2:f5:4a:87") {
+    $AgentEmail = "F8:89:D2:F5:4A:87_@Yolaine.OjUpRAB"
+} else {
+    $AgentEmail = "18:3d:2d:e1:e8:3c_@Yolaine.OjUpRAB"
+}
 
 # 1. Comprobacion y elevacion de permisos de Administrador
 $isAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
