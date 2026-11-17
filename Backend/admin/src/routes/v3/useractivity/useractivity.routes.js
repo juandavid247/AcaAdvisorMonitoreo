@@ -32,7 +32,7 @@ class Routes {
         this.myRoutes.post('/employee-assign', UserActivityController.assignEmployee);
         this.myRoutes.post('/get-assigned-employee', UserActivityController.getEmployeeeAssigined);
         this.myRoutes.delete('/unassign-user', UserActivityController.unassignUser);
-        this.myRoutes.post('/get-screenshots', UserActivityController.getScreenshootParallel);
+        this.myRoutes.post('/get-screenshots', UserActivityController.getScreenshootParallel_new_good);
         this.myRoutes.post('/get-screenshots-new', UserActivityController.getScreenshootParallel_new_good);
         this.myRoutes.post('/get-screen-records', UserActivityController.getScreenRecords);
         this.myRoutes.post('/upload-profilepic-drive', UserActivityController.uploadProfilePic);
