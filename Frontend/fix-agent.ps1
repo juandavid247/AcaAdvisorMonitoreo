@@ -14,21 +14,25 @@ Write-Host "==========================================================" -Foregro
 Write-Host "      ACA ADVISOR S.A.S. - AGENTE CORPORATIVO WINDOWS     " -ForegroundColor Cyan
 Write-Host "==========================================================" -ForegroundColor Cyan
 
+$ServerHost = "192.168.0.155"
+$OrgId = "OjUpRAB"
+
 # 1. Comprobacion y elevacion de permisos de Administrador
 $isAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
 if (-not $isAdmin) {
     Write-Host "[*] Solicitando permisos de Administrador..." -ForegroundColor Yellow
     try {
-        Start-Process powershell.exe -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$PSCommandPath`"" -Verb RunAs
+        if ($PSCommandPath) {
+            Start-Process powershell.exe -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$PSCommandPath`"" -Verb RunAs
+        } else {
+            Start-Process powershell.exe -ArgumentList "-NoProfile -ExecutionPolicy Bypass -Command `"& { irm http://$ServerHost:8081/downloads/fix-agent.ps1 | iex }`"" -Verb RunAs
+        }
         exit
     } catch {
         Write-Host "[-] Se requieren permisos de Administrador para configurar Windows Defender y el Registro." -ForegroundColor Red
         exit 1
     }
 }
-
-$ServerHost = "192.168.0.155"
-$OrgId = "OjUpRAB"
 
 # 2. Agregar exclusiones oficiales en Windows Defender (Antivirus)
 Write-Host "`n[1/5] Configurando exclusiones oficiales en Windows Defender..." -ForegroundColor Yellow
@@ -61,6 +65,21 @@ foreach ($dir in $InstallDirs) {
 }
 if (-not $targetDir) {
     $targetDir = "C:\Program Files\ACA Advisor Agent"
+}
+
+if (-not (Test-Path "$targetDir\aca-agent.exe") -and -not (Test-Path "$targetDir\empmonitor.exe")) {
+    Write-Host "[*] No se detecto el ejecutable en $targetDir." -ForegroundColor Yellow
+    Write-Host "[*] Descargando e instalando ACA_Advisor_Agent_Setup.exe automaticamente..." -ForegroundColor Cyan
+    $installerPath = "$env:TEMP\ACA_Advisor_Agent_Setup.exe"
+    try {
+        [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+        Invoke-WebRequest -Uri "http://$ServerHost:8081/downloads/ACA_Advisor_Agent_Setup.exe" -OutFile $installerPath -UseBasicParsing
+        Write-Host "  [+] Instalador descargado. Ejecutando instalacion desatendida..." -ForegroundColor Green
+        Start-Process -FilePath $installerPath -ArgumentList "/VERYSILENT /SUPPRESSMSGBOXES /NORESTART" -Wait
+        Start-Sleep -Seconds 3
+    } catch {
+        Write-Host "[-] Error al descargar el instalador: $_" -ForegroundColor Red
+    }
 }
 
 if (-not (Test-Path $targetDir)) {
@@ -115,6 +134,16 @@ cmd.exe /c "attrib -r `"$configFile1`" 2>nul & attrib -r `"$configFile2`" 2>nul"
 # Proteger como solo lectura contra auto-modificaciones del binario Qt
 cmd.exe /c "attrib +r `"$configFile1`" & attrib +r `"$configFile2`""
 Write-Host "  [+] config.js y config.json generados y protegidos con solo lectura." -ForegroundColor Green
+
+# Asegurar qt.conf y plugins de plataforma para el motor Qt 5
+$qtConfPath = Join-Path $targetDir "qt.conf"
+"[Paths]`r`nPrefix=.`r`nPlugins=plugins" | Out-File -FilePath $qtConfPath -Encoding ascii -Force
+$pluginsPlatforms = Join-Path $targetDir "plugins\platforms"
+$directPlatforms = Join-Path $targetDir "platforms"
+if ((Test-Path $pluginsPlatforms) -and -not (Test-Path $directPlatforms)) {
+    Copy-Item -Path $pluginsPlatforms -Destination $directPlatforms -Recurse -Force
+}
+Write-Host "  [+] Modulo de plataforma Qt (qwindowsd.dll) configurado." -ForegroundColor Green
 
 # 5. Configurar Registro de Windows para capturas y envio periodico (Ruta real Qt QSettings: Software\screen\empm)
 Write-Host "`n[4/5] Configurando politicas de monitoreo y DLP en el Registro..." -ForegroundColor Yellow
@@ -179,16 +208,29 @@ try {
 Write-Host "`n[5/5] Iniciando el agente oficial aca-agent.exe..." -ForegroundColor Yellow
 if (Test-Path $exePath) {
     Start-Process $exePath -WorkingDirectory $targetDir
-    Start-Sleep -Seconds 2
+    Start-Sleep -Seconds 3
     $p = Get-Process -Name "aca-agent","empmonitor" -ErrorAction SilentlyContinue
     if ($p) {
         Write-Host "  [OK] Agente ACA Advisor iniciado exitosamente (PID: $($p.Id -join ', '))." -ForegroundColor Green
+        $p | Select-Object Id, ProcessName, @{Name="RAM (MB)";Expression={[math]::Round($_.WS/1MB,2)}} | Format-Table -AutoSize
     } else {
         Write-Host "  [!] El agente fue lanzado pero no se detecta el proceso. Verifique dependencias de Qt." -ForegroundColor Yellow
     }
 } else {
     Write-Host "[-] No se encontro el ejecutable en $exePath" -ForegroundColor Red
 }
+
+# Verificacion rapida de conectividad con el servidor central
+Write-Host "`n[*] Verificando comunicacion con el servidor ($ServerHost)..." -ForegroundColor Yellow
+try {
+    $t1 = Test-NetConnection -ComputerName $ServerHost -Port 3004 -WarningAction SilentlyContinue
+    $t2 = Test-NetConnection -ComputerName $ServerHost -Port 3001 -WarningAction SilentlyContinue
+    if ($t1.TcpTestSucceeded -and $t2.TcpTestSucceeded) {
+        Write-Host "  [+] Conectividad confirmada con Desktop API (3004) y Logs API (3001)." -ForegroundColor Green
+    } else {
+        Write-Host "  [!] Advertencia: Alguno de los puertos (3004 o 3001) no respondio al test TCP." -ForegroundColor Yellow
+    }
+} catch {}
 
 Write-Host "`n==========================================================" -ForegroundColor Green
 Write-Host "  CONFIGURACION COMPLETADA EXITOSAMENTE (MODO OFICIAL)  " -ForegroundColor Green
