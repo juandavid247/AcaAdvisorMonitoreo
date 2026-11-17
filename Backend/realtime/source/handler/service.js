@@ -12,8 +12,15 @@ let cameraStreamRequests = {};
 
 const { publishToChannel, subscribeToChannel, getAsync, setAsync, delAsync, keysAsync, getUserMetaData } = require("../auth/redis");
 
+const parseIfString = (msg) => {
+    if (typeof msg === 'string') {
+        try { return JSON.parse(msg); } catch (e) { return null; }
+    }
+    return msg;
+};
+
 subscribeToChannel("channel-auth", (message) => {
-    message = JSON.parse(message);
+    message = parseIfString(message);
     switch (message?.message) {
         case "Agent Auth":
             if (!connectedAgents[message.user_id]) connectedAgents[message.user_id] = "Dummy user";
@@ -27,7 +34,7 @@ subscribeToChannel("channel-auth", (message) => {
 });
 
 subscribeToChannel("channel-image-stream", (message) => {
-    message = JSON.parse(message);
+    message = parseIfString(message);
     switch (message?.message) {
         case "channel-image-stream":
             const reqSet = new Set([
@@ -49,7 +56,7 @@ subscribeToChannel("channel-image-stream", (message) => {
 });
 
 subscribeToChannel("channel-camera-stream", (message) => {
-    message = JSON.parse(message);
+    message = parseIfString(message);
     switch (message?.message) {
         case "channel-camera-stream": // Find the admin who requested the webcam stream and send the message received from agent to connected admin/frontend user
             const requests = cameraStreamRequests[message.user_id] || [];
@@ -75,7 +82,7 @@ subscribeToChannel("channel-camera-stream", (message) => {
 });
 
 subscribeToChannel("channel-update-image-request", (message) => {
-    message = JSON.parse(message);
+    message = parseIfString(message);
     switch (message?.message) {
         case "channel-update-image-request":
             imageRequests[message.user_id] = [];
@@ -166,7 +173,7 @@ subscribeToChannel("channel-update-image-request", (message) => {
 
 
 subscribeToChannel("channel-update-realtime-activity", (message) => {
-    message = JSON.parse(message);
+    message = parseIfString(message);
     switch (message?.message) {
         case "agent_auth":
             organizationRealTime[message.organization_id] = organizationRealTime[message.organization_id] || { frontend: [], agents: [] };
