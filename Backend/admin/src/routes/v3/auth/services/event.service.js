@@ -33,7 +33,11 @@ const startBuildProcess = async (encryptedOrgId, mode, version, organization_id,
         buildUrl = buildUrl.replace('Qt_Windows-Live', 'Qt-Linux-Auto-Live');
         buildUrl = buildUrl.replace("service.empmonitor.com", "https://service.empmonitor.com")
     }
-    else buildUrl = buildUrl;
+    if (!process.env.JENKINS_URL) {
+        console.log(`[Build] JENKINS_URL not configured. Skipping agent build for org ${organization_id}`);
+        return;
+    }
+
     // Make api call
     const jenkinsAxios = axios.create({
         baseURL: process.env.JENKINS_URL,

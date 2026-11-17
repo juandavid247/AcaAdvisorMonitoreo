@@ -51,6 +51,7 @@ const { promisify } = require("util");
 const getAsync = promisify(client.get).bind(client);
 const setAsync = promisify(client.set).bind(client);
 const delAsync = promisify(client.del).bind(client);
+const keysAsync = promisify(client.keys).bind(client);
 
 // Utility Functions
 const setUserMetaData = (userId, userData) => {
@@ -136,4 +137,5 @@ module.exports = {
     getAsync,
     setAsync,
     delAsync,
+    keysAsync,
 };

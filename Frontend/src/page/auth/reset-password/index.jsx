@@ -2,9 +2,11 @@ import React, { useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { resetPassword } from "./service";
-import userBgIllustration from "@/assets/user-bg.png";
 import empLogo from "@/assets/emp.png";
+import smallempLogo from "@/assets/smallemp.png";
 import userIcon from "@/assets/user-setting.png";
+import ThemeToggle from "@/components/common/ThemeToggle";
+import "../admin-login/style.css";
 
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -68,63 +70,66 @@ export const ResetPassword = () => {
 
   return (
     <div
-      className="relative min-h-screen flex flex-col overflow-hidden"
-      style={{
-        backgroundImage: `url(${userBgIllustration})`,
-        backgroundSize: "cover",
-        backgroundPosition: "left center",
-        backgroundRepeat: "no-repeat",
-      }}
+      className="relative min-h-screen flex flex-col overflow-hidden bg-[#F8FAFC] dark:bg-[#0B1120] text-slate-800 dark:text-slate-100 transition-colors duration-300 aca-hex-bg"
     >
-      <div className="absolute inset-0 bg-sky-50/20 pointer-events-none z-0" />
-
-      <header className="animate-fade-down relative z-10 flex items-center justify-between px-8 py-5">
+      {/* Header */}
+      <header className="animate-fade-down relative z-10 flex items-center justify-between px-6 sm:px-12 py-5 sm:py-7">
         <div className="flex items-center gap-3">
-          <img src={empLogo} alt="" className="w-40" />
+          <img
+            src={empLogo}
+            alt="ACA ADVISOR S.A.S."
+            className="h-24 sm:h-32 md:h-36 w-auto max-w-[280px] sm:max-w-[420px] object-contain drop-shadow-md transition-all duration-200"
+          />
+        </div>
+        <div className="flex items-center gap-3">
+          <ThemeToggle />
         </div>
       </header>
 
-      <main className="relative z-10 flex flex-1 items-center justify-end px-6 sm:px-16 lg:px-24 pb-12 max-w-[1700px]">
-        <div className="flex flex-col items-center justify-center max-w-[500px] w-full gap-4">
+      {/* Main */}
+      <main className="relative z-10 flex flex-1 items-center justify-end px-6 sm:px-16 lg:px-24 pb-12 max-w-[1700px] w-full">
+        <div className="flex flex-col items-center justify-center max-w-[480px] w-full gap-4">
           <div
-            className="animate-card-rise relative w-full rounded-[63px] overflow-hidden px-12 py-10"
-            style={{
-              background: "rgba(255,255,255,0.92)",
-              backdropFilter: "blur(24px)",
-              WebkitBackdropFilter: "blur(24px)",
-              boxShadow:
-                "0 0 0 1px rgba(92,225,253,0.14), 0 4px 24px rgba(32,121,253,0.1), 0 20px 60px rgba(32,121,253,0.14)",
-            }}
+            className="animate-card-rise relative w-full rounded-3xl overflow-hidden px-8 sm:px-12 py-10 border border-slate-200/90 dark:border-slate-800/90 bg-white/95 dark:bg-[#131E32]/95 backdrop-blur-xl shadow-2xl shadow-sky-500/5 dark:shadow-black/60 transition-all duration-300"
           >
-            <div className="flex justify-center mb-5">
-              <img src={userIcon} alt="icon" className="w-10" />
+            {/* Top brand accent bar */}
+            <div className="absolute top-0 left-0 right-0 h-1.5 shimmer-bar" />
+
+            {/* Avatar */}
+            <div className="flex justify-center mb-5 mt-2">
+              <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-[#30A9E3]/15 to-[#3A9F6B]/15 dark:from-[#30A9E3]/25 dark:to-[#3A9F6B]/25 flex items-center justify-center border border-[#30A9E3]/25 shadow-md">
+                <img src={smallempLogo} alt="ACA ADVISOR" className="w-10 h-10 object-contain drop-shadow-sm" />
+              </div>
             </div>
 
             <div className="text-center mb-7">
-              <h2 className="text-[20px] font-bold tracking-tight text-[#0f1e3a]">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-[#30A9E3] dark:text-[#38BDF8]">
+                ACA ADVISOR S.A.S.
+              </span>
+              <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-[#0F7CB9] dark:text-white mt-1">
                 {t("auth_reset_password_title") || "Reset your password"}
               </h2>
               {email && (
-                <p className="mt-1 text-[13px] text-[#3a5a7a] break-all">{email}</p>
+                <p className="mt-1 text-[13px] text-slate-500 dark:text-slate-400 break-all">{email}</p>
               )}
             </div>
 
             {!tokenValid && (
-              <div className="animate-fade-in flex items-center gap-2 mb-5 px-3.5 py-2.5 rounded-xl text-[13px] text-red-700 bg-red-50 border border-red-200 border-l-[3px] border-l-red-400">
+              <div className="animate-fade-in flex items-center gap-2 mb-5 px-3.5 py-2.5 rounded-xl text-[13px] text-red-700 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 border-l-[3px] border-l-red-500">
                 <AlertCircle size={16} className="shrink-0" />
                 <span>{t("auth_reset_invalid_link") || "Invalid or expired reset link."}</span>
               </div>
             )}
 
             {error && (
-              <div className="animate-fade-in flex items-center gap-2 mb-5 px-3.5 py-2.5 rounded-xl text-[13px] text-red-700 bg-red-50 border border-red-200 border-l-[3px] border-l-red-400">
+              <div className="animate-fade-in flex items-center gap-2 mb-5 px-3.5 py-2.5 rounded-xl text-[13px] text-red-700 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 border-l-[3px] border-l-red-500">
                 <AlertCircle size={16} className="shrink-0" />
                 <span>{error}</span>
               </div>
             )}
 
             {success && (
-              <div className="animate-fade-in flex items-center gap-2 mb-5 px-3.5 py-2.5 rounded-xl text-[13px] text-green-700 bg-green-50 border border-green-200 border-l-[3px] border-l-green-400">
+              <div className="animate-fade-in flex items-center gap-2 mb-5 px-3.5 py-2.5 rounded-xl text-[13px] text-emerald-700 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-900 border-l-[3px] border-l-emerald-500">
                 <CheckCircle2 size={16} className="shrink-0" />
                 <span>{success}</span>
               </div>
@@ -132,7 +137,7 @@ export const ResetPassword = () => {
 
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-1.5">
-                <Label htmlFor="new_password" className="text-[13px] font-semibold text-[#3a5a7a]">
+                <Label htmlFor="new_password" className="text-[13px] font-semibold text-slate-700 dark:text-slate-300">
                   {t("auth_new_password") || "New password"}
                 </Label>
                 <div className="relative">
@@ -144,7 +149,7 @@ export const ResetPassword = () => {
                     required
                     disabled={!tokenValid || loading || !!success}
                     placeholder={t("auth_enter_new_password") || "Enter new password"}
-                    className="emp-input px-4 pr-11 h-11 rounded-xl text-sm text-[#1a2a4a] bg-white/80 placeholder:text-[#aac4d8] border-[1.5px] border-[#e0eef5] transition-all duration-200"
+                    className="emp-input px-4 pr-11 h-11 rounded-xl text-sm text-slate-900 dark:text-slate-100 bg-white dark:bg-slate-900/80 placeholder:text-slate-400 border-[1.5px] border-slate-200 dark:border-slate-700 transition-all duration-200"
                   />
                   <Button
                     type="button"
@@ -152,7 +157,7 @@ export const ResetPassword = () => {
                     size="icon"
                     tabIndex={-1}
                     onClick={() => setShowNew((v) => !v)}
-                    className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8 text-[#9bbdce] hover:text-[#2079FD] hover:bg-transparent transition-colors duration-200"
+                    className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8 text-slate-400 hover:text-[#30A9E3] hover:bg-transparent transition-colors duration-200"
                   >
                     {showNew ? <EyeOff size={16} /> : <Eye size={16} />}
                   </Button>
@@ -160,7 +165,7 @@ export const ResetPassword = () => {
               </div>
 
               <div className="space-y-1.5">
-                <Label htmlFor="confirm_password" className="text-[13px] font-semibold text-[#3a5a7a]">
+                <Label htmlFor="confirm_password" className="text-[13px] font-semibold text-slate-700 dark:text-slate-300">
                   {t("auth_confirm_password") || "Confirm password"}
                 </Label>
                 <div className="relative">
@@ -172,7 +177,7 @@ export const ResetPassword = () => {
                     required
                     disabled={!tokenValid || loading || !!success}
                     placeholder={t("auth_reenter_new_password") || "Re-enter new password"}
-                    className="emp-input px-4 pr-11 h-11 rounded-xl text-sm text-[#1a2a4a] bg-white/80 placeholder:text-[#aac4d8] border-[1.5px] border-[#e0eef5] transition-all duration-200"
+                    className="emp-input px-4 pr-11 h-11 rounded-xl text-sm text-slate-900 dark:text-slate-100 bg-white dark:bg-slate-900/80 placeholder:text-slate-400 border-[1.5px] border-slate-200 dark:border-slate-700 transition-all duration-200"
                   />
                   <Button
                     type="button"
@@ -180,7 +185,7 @@ export const ResetPassword = () => {
                     size="icon"
                     tabIndex={-1}
                     onClick={() => setShowConfirm((v) => !v)}
-                    className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8 text-[#9bbdce] hover:text-[#2079FD] hover:bg-transparent transition-colors duration-200"
+                    className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8 text-slate-400 hover:text-[#30A9E3] hover:bg-transparent transition-colors duration-200"
                   >
                     {showConfirm ? <EyeOff size={16} /> : <Eye size={16} />}
                   </Button>
@@ -191,7 +196,7 @@ export const ResetPassword = () => {
                 <Button
                   type="submit"
                   disabled={loading || !tokenValid || !!success}
-                  className="login-btn w-full h-11 rounded-xl text-[15px] font-bold text-white border-none transition-all duration-300 disabled:opacity-75 disabled:cursor-not-allowed bg-gradient-to-b from-[#5CE1FD] to-[#2079FD]"
+                  className="login-btn w-full h-11 rounded-xl text-[15px] font-bold text-white border-none transition-all duration-300 disabled:opacity-75 disabled:cursor-not-allowed bg-gradient-to-r from-[#30A9E3] to-[#0F7CB9] hover:from-[#2597ce] hover:to-[#0c6699] shadow-lg shadow-[#30A9E3]/20"
                 >
                   {loading ? (
                     <span className="flex items-center gap-2">
@@ -209,14 +214,14 @@ export const ResetPassword = () => {
               <Button
                 type="button"
                 variant="ghost"
-                className="h-auto p-0 text-[13px] font-bold text-[#2079FD] hover:text-[#2079FD] hover:bg-transparent hover:underline"
+                className="h-auto p-0 text-[13px] font-bold text-[#30A9E3] hover:text-[#0F7CB9] dark:text-[#38BDF8] hover:bg-transparent hover:underline"
                 onClick={() => navigate("/login")}
               >
                 {t("auth_back_to_login") || "Back to login"}
               </Button>
             </div>
           </div>
-          <span className="text-xs text-[#9bbdce]">© {new Date().getFullYear()} – EmpMonitor</span>
+          <span className="text-xs text-slate-500 dark:text-slate-400">© {new Date().getFullYear()} ACA ADVISOR S.A.S. - Todos los derechos reservados</span>
         </div>
       </main>
     </div>

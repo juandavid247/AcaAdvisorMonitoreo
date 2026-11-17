@@ -12,7 +12,7 @@ import {
   exportCumulativeExcel,
 } from "./service";
 
-const TZ = "Asia/Kolkata";
+const TZ = "America/Bogota";
 const defaultStart = moment().tz(TZ).format("YYYY-MM-DD");
 const defaultEnd = moment().tz(TZ).format("YYYY-MM-DD");
 

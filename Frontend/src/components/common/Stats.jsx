@@ -53,7 +53,7 @@ const getStatType = (labelKey) => {
   }
 };
 
-export default function Stats({ stats, timezone = "Asia/Kolkata" }) {
+export default function Stats({ stats, timezone = "America/Bogota" }) {
   const { t } = useTranslation();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalTitle, setModalTitle] = useState(t("employees"));

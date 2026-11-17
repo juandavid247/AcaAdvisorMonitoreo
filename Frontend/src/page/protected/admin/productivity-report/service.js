@@ -22,7 +22,7 @@ const getProductivityList = async ({
     locationId = "All",
     departmentId = "all",
     employeeId = "all",
-    timezone = "Asia/Kolkata"
+    timezone = "America/Bogota"
 } = {}) => {
     try {
         const now = moment().tz(timezone);
@@ -160,7 +160,7 @@ const getEmployees = async ({ locationId, departmentId, managerId } = {}) => {
                 location_id: locationId || "",
                 department_id: departmentId || "",
                 role_id: "",
-                day: moment().tz("Asia/Kolkata").format("YYYY-MM-DD"),
+                day: moment().tz("America/Bogota").format("YYYY-MM-DD"),
                 limit: 500,
                 skip: 0,
                 name: ""

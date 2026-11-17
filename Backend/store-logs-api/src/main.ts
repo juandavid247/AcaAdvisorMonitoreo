@@ -24,6 +24,23 @@ async function bootstrap() {
     // Add global interceptor for calculating execution time for completing any req handler
     app.useGlobalInterceptors(new ExecutionTimeInterceptor());
 
+    // Normalize /api/desktop/*, /api/activity/*, /api/clock-in/* and /api/v1/activity/* for compatibility
+    app.use((req, res, next) => {
+        if (
+            req.url.startsWith('/api/desktop/') ||
+            req.url.startsWith('/api/activity/') ||
+            req.url.startsWith('/api/clock-in/')
+        ) {
+            req.url = req.url.replace('/api/', '/api/v1/');
+            req.originalUrl = req.url;
+        }
+        if (req.url.startsWith('/api/v1/activity/')) {
+            req.url = req.url.replace('/api/v1/activity/', '/api/v1/desktop/');
+            req.originalUrl = req.url;
+        }
+        next();
+    });
+
     // prefixing 'api' to all routes
     app.setGlobalPrefix('api');
 

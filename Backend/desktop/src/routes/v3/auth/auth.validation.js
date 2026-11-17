@@ -14,15 +14,15 @@ class AuthValidator {
     validateLoginParams() {
         return Joi.object().keys({
             email: Joi.string().required().regex(/[<>;]/, { invert: true }).error((err) => { return Common.hapijoiStringErrorMessage(err) }),
-            password: Joi.string().optional(),
-            macId: Joi.string().optional(),
+            password: Joi.string().allow('', null).optional(),
+            macId: Joi.string().allow('', null).optional(),
             testing: Joi.number().default(0)
         }).required();
     }
 
     validateAutoRegistartionParams() {
         return Joi.object({
-            macId: Joi.string().guid().required(),
+            macId: Joi.string().allow('', null).optional(),
             organizationId: Joi.string().required(),
             username: Joi.string().required().regex(/[<>;]/, { invert: true }).error((err) => { return Common.hapijoiStringErrorMessage(err) }),
             computerName: Joi.string().required().regex(/[<>;]/, { invert: true }).error((err) => { return Common.hapijoiStringErrorMessage(err) }),

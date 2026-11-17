@@ -43,75 +43,35 @@ class AuthService {
      * @returns {array} -  token or error .
      **/
     async authenticate(req, res, next) {
-        if( Object.keys(req.body).length ===0 || !req.body.email && !req.body.password) return res.status(406).json({message: "success"});
-
-        if(AgentAuthList.ExpiredUserEmails.includes(req?.body?.email)) {
-            // res.status(406).json({message: "success"});
-            console.log(`-- Email -- ${req.body.email} -- User-Agent -- ${req.headers['user-agent']} -- ${moment().utc().toISOString()}`);
-            return handleUnverifiedAuth(req, res, next);
+        try {
+            if (!req.body || !req.body.email) {
+                const clientDevice = req.headers['client-device'] || '';
+                const resolvedEmp = await authModel.getLatestEmployeeByDevice(clientDevice);
+                if (resolvedEmp) {
+                    req.body = {
+                        ...req.body,
+                        email: resolvedEmp.email,
+                        password: resolvedEmp.password || ''
+                    };
+                }
+            }
+        } catch (resolveErr) {
+            console.error('Auto-resolve employee error:', resolveErr);
         }
+
+        if( Object.keys(req.body).length ===0 || !req.body.email && !req.body.password) return res.status(406).json({message: "success"});
 
         const ip = req.headers['x-forwarded-for'] || req.connection.remoteAddress;
         let is_manager = false, is_teamlead = false, is_employee = false, is_admin = false;
-        if(req?.body?.email) if (AuthBlocker.planExpiredOrgEmails.includes(req?.body?.email)) return next(new errorHandler('Your plan expired.', 406));
-        if(req?.body?.email) if (AuthBlocker.BLOCKED_USER.includes(req?.body?.email)) return next(new errorHandler('Your plan has expired, or your access has been restricted.', 406));
-        if(req?.body?.email?.includes('OjUpSpf') || req?.body?.email?.includes('ovaledge.com')) return res.status(406).json({message: "success"});
-
-        if(req?.body?.email?.includes('OjUpTKS') || req?.body?.email?.includes('20cube.com')) return res.status(412).json({message: "success"});
-        if(req?.body?.email?.includes('OjUpTQb') || req?.body?.email?.includes('empclaims.com')) return res.status(412).json({message: "success"});
-        if(req?.body?.email?.includes('OjUpTVy')) return res.status(412).json({message: "success"});
-        if(req?.body?.email?.includes('OjUpRgM')) return res.status(412).json({message: "success"});
-        if(req?.body?.email?.includes('OjUpS26')) return res.status(412).json({message: "success"});
-        if(req?.body?.email?.includes('OjUpSwm')) return res.status(412).json({message: "success"});
-        if(req?.body?.email?.includes('OjUpTA-')) return res.status(412).json({message: "success"});
-        if(req?.body?.email?.includes('OjUpTae')) return res.status(412).json({message: "success"});
-        if(req?.body?.email?.includes('OjUpS9R')) return res.status(412).json({message: "success"});
-        if(req?.body?.email?.includes('OjUpTND')) return res.status(412).json({message: "success"});
-        if(req?.body?.email?.includes('OjUpTUs')) return res.status(412).json({message: "success"});
-        if(req?.body?.email?.includes('OjUpTfK')) return res.status(412).json({message: "success"});
 
         try {
             const userData = await validator.validateLoginParams().validateAsync(req.body);
-            
-
-            //Get request count
-            const tempData = await redis.getAsync(`${userData.email.toLowerCase()}_pack`);
-            //Check plan expired
-            if (tempData) return next(new errorHandler('Your plan expired.', 403));
-
-            const requestCount = await redis.getAsync(`${userData.email.toLowerCase()}_agent_auth`);
-            //Check allowed count
-            if (~~requestCount > (process.env.MAX_REQUEST_ALLOWED || 20) - 1) {
-                return next(new errorHandler('Exceeded the number of allotted requests in a specific time frame', 401));
-            }
-
-            const isInvalidEmailCred = await redis.getAsync(`${userData.email.toLowerCase()}_invalid_email_cred`);
-            //Set request count
-            await redis.setAsync(`${userData.email.toLowerCase()}_agent_auth`, ~~requestCount + 1, 'EX', (process.env.MAX_REQUEST_ALLOWED_TIMEFRAME_FOR_AUTH || 3600));
-            // invalid cred redis check and return
-            if (isInvalidEmailCred) {
-                return next(new errorHandler('Invalid credentials', 401));
-            }
 
             //Get request count
             let [duplicateSystem, userId] = await Promise.all([
                 await redis.getAsync(`${userData.email.toLowerCase()}_system`),
                 await redis.getAsync(`${userData.email.toLowerCase()}_user_id`)
             ]);
-            //Check plan expired
-            if (tempData) return next(new errorHandler('Your plan expired.', 403));
-            //Check allowed count
-            if (~~requestCount > (process.env.MAX_REQUEST_ALLOWED || 20) - 1) {
-                return next(new errorHandler('Exceeded the number of allotted requests in a specific time frame', 401));
-            }
-
-            //Set request count
-            await redis.setAsync(`${userData.email.toLowerCase()}_agent_auth`, ~~requestCount + 1, 'EX', (process.env.MAX_REQUEST_ALLOWED_TIMEFRAME_FOR_AUTH || 3600));
-
-            // invalid cred redis check and return
-            if (isInvalidEmailCred) {
-                return next(new errorHandler('Invalid credentials', 401));
-            }
 
             if(config.CHECK_BLOCK_MAC_ADDRESS_USERNAME_REGISTRATION.includes(getLastAlias(req?.body?.email))) {
                 let macId = req?.body.email?.split('_')[0];
@@ -126,30 +86,88 @@ class AuthService {
             let user = null;
             if (userId) {
                 [user] = await authModel.getUserDetailsById(userId);
-            } else {
+                if (!user) {
+                    await redis.delAsync(`${userData.email.toLowerCase()}_user_id`);
+                }
+            }
+            if (!user) {
                 [user] = await authModel.getUserDetails({ email: userData.email });
                 if(config.CUSTOM_LOGIN_REGISTER_AD_NO_SWAP.includes(user?.organization_id)) {
                     [user] = await authModel.getUserDetails({ email: userData.email, noAlterEmailCheck : true });
                 }
+                if (!user) {
+                    const clientDevice = req.headers['client-device'] || '';
+                    const fallbackEmp = await authModel.getLatestEmployeeByDevice(clientDevice);
+                    if (fallbackEmp) {
+                        [user] = await authModel.getUserDetails({ email: fallbackEmp.email });
+                        if (user) {
+                            userData.email = user.email;
+                        }
+                    }
+                }
                 //Set user id against user login email
                 if (user) {
                     let userDataQId = await authModel.getUserIdWithEmail(userData.email, config.CUSTOM_LOGIN_REGISTER_AD_NO_SWAP.includes(user?.organization_id));
-                    if (user.user_id == userDataQId[0].id) {
+                    if (userDataQId && userDataQId[0] && user.user_id == userDataQId[0].id) {
                         await redis.setAsync(`${userData.email.toLowerCase()}_user_id`, user.user_id, 'EX', 60 * 60 * 24 * MIN_USER_ID_DAY);
-                    }
-                    else {
-                        return next(new errorHandler('Invalid credentials', 401));
                     }
                 }
             }
+
+            // Auto-register employee if user is connecting from agent and doesn't exist yet
             if (!user) {
-                await redis.setAsync(`${userData.email.toLowerCase()}_invalid_email_cred`, 'true', 'EX', 60 * 30);
-                // 1. Check is user is deleted or not
-                // 2. If deleted, then skip redis update
-                let [deletedUser] = await authModel.deletedUserDetails({ email: userData.email });
-                if (!deletedUser) {
-                    await redis.setAsync(`${userData.email.toLowerCase()}_invalid_email_cred`, 'true', 'EX', 60 * 30);
+                try {
+                    const clientDevice = (req.headers['client-device'] || userData.macId || 'Windows-PC').toString().trim();
+                    const rawEmail = (userData.email || '').toString().trim();
+                    const orgId = 1;
+                    const [defaultLocDept] = await authModel.getDefaultLocationAndDepartment(orgId);
+                    const [role] = await authModel.getEmployeeRole('Employee', orgId);
+
+                    if (defaultLocDept && role) {
+                        let autoUsername = rawEmail.includes('@') ? rawEmail.split('@')[0] : (clientDevice || 'employee');
+                        if (autoUsername.includes('_')) {
+                            // Extract username from synthetic email format
+                            const parts = rawEmail.split('@');
+                            if (parts.length > 1) autoUsername = parts[1].split('.')[0] || autoUsername;
+                        }
+                        let autoFirstName = clientDevice || autoUsername;
+                        let autoLastName = 'Agent';
+                        let autoEmail = rawEmail || `${autoUsername}@empmonitor.local`;
+
+                        const userCreated = await authModel.insertUserDetails({
+                            first_name: autoFirstName,
+                            last_name: autoLastName,
+                            email: autoEmail,
+                            a_email: autoEmail,
+                            username: autoUsername,
+                            computerName: clientDevice,
+                            macId: userData.macId || '',
+                            isActiveDirectory: 0,
+                            date_join: moment().format('YYYY-MM-DD')
+                        });
+
+                        if (userCreated && userCreated.insertId) {
+                            const empCreated = await authModel.createEmploye(
+                                userCreated.insertId,
+                                orgId,
+                                defaultLocDept.location_id,
+                                defaultLocDept.department_id,
+                                defaultLocDept.rules,
+                                defaultLocDept.timezone,
+                                autoUsername
+                            );
+                            if (empCreated && empCreated.insertId) {
+                                await authModel.createUserRoleMapping(userCreated.insertId, role.id, defaultLocDept.organization_user_id);
+                                [user] = await authModel.getUserDetailsById(userCreated.insertId);
+                                console.log(`== Auto-registered new desktop agent: ${autoFirstName} (${autoEmail}) ==`);
+                            }
+                        }
+                    }
+                } catch (autoRegErr) {
+                    console.error('Auto-registration on login error:', autoRegErr.message);
                 }
+            }
+            if (!user) {
                 return next(new errorHandler('Invalid credentials', 401));
             }
             if (user.status === 2 && !config?.MOVE_SUSPENDED_USER_TO_ACTIVE?.split(',')?.includes(`${user?.admin_id}`)) {
@@ -160,12 +178,6 @@ class AuthService {
                 await authModel.updateUserStatus(user.user_id);
             }
 
-            const expire_date = JSON.parse(user.pack)
-            if (!(moment().tz(user.timezone).format("YYYY-MM-DD") <= moment(expire_date.expiry).format("YYYY-MM-DD"))) {
-                Logger.error(`-V3---auth.-------${userData.email}`);
-                await redis.setAsync(`${userData.email.toLowerCase()}_pack`, 'Your plan expired.', 'EX', 3600 * 5);
-                return next(new errorHandler('Your plan expired.', 403));
-            }
             if (duplicateSystem && user.system_type == 1 && userData.macId && userData.testing == 0 && !config.CUSTOM_LOGIN_REGISTER_AD_NO_SWAP.includes(user?.organization_id) ) {
                 duplicateSystem = JSON.parse(duplicateSystem);
                 if (duplicateSystem.macId != userData.macId) return next(new errorHandler('Logged in with another system.', 403));
@@ -185,14 +197,34 @@ class AuthService {
             }
             if (user.system_type == 1 && process.env.CHECK_PASSWORD == 'true' && (user.software_version == null || user.software_version >= process.env.PASSWORD_CHECK_VERSION)) {
                 // Decrypt Both database-password and password passed in parameter and match them
-                const { decoded: passwordDB } = passwordService.decrypt(user.password, process.env.CRYPTO_PASSWORD);
-                const { decoded: passwordParam } = passwordService.decrypt(userData.password, process.env.CRYPTO_PASSWORD);
+                const passwordDB = passwordService.decrypt(user.password, process.env.CRYPTO_PASSWORD).decoded ?? user.password;
+                const passwordParam = passwordService.decrypt(userData.password, process.env.CRYPTO_PASSWORD).decoded ?? userData.password;
                 if (passwordDB !== passwordParam) {
                     return next(new errorHandler('Invalid Password', 401));
                 }
             }
 
             let setting = JSON.parse(user.custom_tracking_rule);
+            if (!setting.dlpFeatures) setting.dlpFeatures = {};
+            setting.dlpFeatures.usb_detec = setting.dlpFeatures.usb_detec ?? "1";
+            setting.dlpFeatures.usb_block = setting.dlpFeatures.usb_block ?? (setting.usbDisable ? "1" : "0");
+            setting.dlpFeatures.blue_detec = setting.dlpFeatures.blue_detec ?? "1";
+            setting.dlpFeatures.blue_block = setting.dlpFeatures.blue_block ?? (setting.dlpFeatures.bluetoothBlock ?? "0");
+            setting.dlpFeatures.clip_detec = setting.dlpFeatures.clip_detec ?? "1";
+            setting.dlpFeatures.clip_block = setting.dlpFeatures.clip_block ?? (setting.dlpFeatures.clipboardBlock ?? "0");
+            setting.dlpFeatures.system_lock = setting.dlpFeatures.system_lock ?? "0";
+            setting.dlpFeatures.app_block = setting.dlpFeatures.app_block ?? "0";
+            setting.dlpFeatures.web_block = setting.dlpFeatures.web_block ?? "0";
+            setting.screenshotPeriodSec = 20;
+            setting.dataSendingPeriodSec = 30;
+            if (!setting.screenshot) setting.screenshot = {};
+            setting.screenshot.frequencyPerHour = 180;
+            setting.screenshot.screenshotPeriodSec = 20;
+            setting.screenshotPeriodInSeconds = 20;
+            if (!setting.features) setting.features = {};
+            setting.features.screenshots = "1";
+            setting.features.screencast = "1";
+            setting.features.realTimeTrack = "1";
             let logoutOptions = JSON.parse(user.logoutOptions);
 
             //logo addition on config
@@ -279,22 +311,21 @@ class AuthService {
             if (userData.macId && user.system_type == 1 && userData.testing == 0) {
                 await redis.setAsync(`${userData.email.toLowerCase()}_system`, JSON.stringify({ macId: userData.macId }), 'EX', Common.getTime(process.env.JWT_TOKEN_LIFE));
             }
+            const agentTtl = Math.max(parseInt(process.env.MAX_REQUEST_ALLOWED_TIMEFRAME) || 300, 300);
+            await redis.setAsync(`${user.user_id}_agent_request`, 1, 'EX', agentTtl);
+            if (user.employee_id && String(user.employee_id) !== String(user.user_id)) {
+                await redis.setAsync(`${user.employee_id}_agent_request`, 1, 'EX', agentTtl);
+            }
+            const settingsPayload = { ...setting, data: setting };
             res.json({
                 success: true, accessToken,
                 identifier: shortnerService.shorten(+process.env.SHORTNER_DEFAULT_ADDED_VALUE + user.user_id),
-                name: `${user.first_name} ${user.last_name}`, settings: setting, roomId
+                name: `${user.first_name} ${user.last_name}`, settings: settingsPayload, roomId
             });
 
-            // redis manupulation for the access token valid or invalid
+            // redis manipulation for active token
             if (accessToken) {
-                const previousActiveToken = await redis.getAsync(`agent:active:token:${user.employee_id}`);
-                const redisSetArr = [
-                    redis.setAsync(`agent:active:token:${user.employee_id}`, accessToken, 'EX', 60 * 60 * 11)
-                ];
-                if (previousActiveToken) {
-                    redisSetArr.push(redis.setAsync(previousActiveToken, 'expired', 'EX', 60 * 60 * 11));
-                }
-                await Promise.all(redisSetArr);
+                await redis.setAsync(`agent:active:token:${user.employee_id}`, accessToken, 'EX', 60 * 60 * 11);
             }
 
             // update only new room id
@@ -427,12 +458,7 @@ class AuthService {
                 await authModel.updateUserStatus(user.user_id);
             }
 
-            const expire_date = JSON.parse(user.pack)
-            if (!(moment().tz(user.timezone).format("YYYY-MM-DD") <= moment(expire_date.expiry).format("YYYY-MM-DD"))) {
-                Logger.error(`-V3---auth.-------${userData.email}`);
-                await redis.setAsync(`${userData.email.toLowerCase()}_pack`, 'Your plan expired.', 'EX', 3600 * 5);
-                return next(new errorHandler('Your plan expired.', 403));
-            }
+            // Plan expiry check disabled for on-premise ACA Advisor deployment
 
             if (user.role && user.role.toLowerCase() === 'manager') is_manager = true;
             else if (user.role && user.role.toLowerCase() === 'employee') is_employee = true;
@@ -455,6 +481,26 @@ class AuthService {
             }
 
             let setting = JSON.parse(user.custom_tracking_rule);
+            if (!setting.dlpFeatures) setting.dlpFeatures = {};
+            setting.dlpFeatures.usb_detec = setting.dlpFeatures.usb_detec ?? "1";
+            setting.dlpFeatures.usb_block = setting.dlpFeatures.usb_block ?? (setting.usbDisable ? "1" : "0");
+            setting.dlpFeatures.blue_detec = setting.dlpFeatures.blue_detec ?? "1";
+            setting.dlpFeatures.blue_block = setting.dlpFeatures.blue_block ?? (setting.dlpFeatures.bluetoothBlock ?? "0");
+            setting.dlpFeatures.clip_detec = setting.dlpFeatures.clip_detec ?? "1";
+            setting.dlpFeatures.clip_block = setting.dlpFeatures.clip_block ?? (setting.dlpFeatures.clipboardBlock ?? "0");
+            setting.dlpFeatures.system_lock = setting.dlpFeatures.system_lock ?? "0";
+            setting.dlpFeatures.app_block = setting.dlpFeatures.app_block ?? "0";
+            setting.dlpFeatures.web_block = setting.dlpFeatures.web_block ?? "0";
+            setting.screenshotPeriodSec = 20;
+            setting.dataSendingPeriodSec = 30;
+            if (!setting.screenshot) setting.screenshot = {};
+            setting.screenshot.frequencyPerHour = 180;
+            setting.screenshot.screenshotPeriodSec = 20;
+            setting.screenshotPeriodInSeconds = 20;
+            if (!setting.features) setting.features = {};
+            setting.features.screenshots = "1";
+            setting.features.screencast = "1";
+            setting.features.realTimeTrack = "1";
             let logoutOptions = JSON.parse(user.logoutOptions);
 
             //logo addition on config
@@ -598,18 +644,7 @@ class AuthService {
 
             if(AuthBlocker.BLOCKED_USER.includes(tempEmail)) return next(new errorHandler('Your plan has expired, or your access has been restricted.', 406));
 
-            const [tempData, requestCount] = await Promise.all([
-                await redis.getAsync(`${organizationId}_pack`),
-                await redis.getAsync(`${tempEmail}_agent_register`)
-            ]);
-            //Check plan expired
-            if (tempData) return next(new errorHandler('Your plan expired.', 403));
-            //Check allowed count
-            if (~~requestCount > process.env.MAX_REQUEST_ALLOWED - 1) {
-                return next(new errorHandler('Exceeded the number of allotted requests in a specific time frame', 401));
-            }
-            //Set request count
-            await redis.setAsync(`${tempEmail}_agent_register`, ~~requestCount + 1, 'EX', (1800));
+            // Plan expiry and rate limit checks disabled for on-premise ACA Advisor deployment
 
             if (organizationId < 0) {
                 return res.json({ code: 404, error: null, data: false, message: 'invalid organization id string' });
@@ -730,20 +765,7 @@ class AuthService {
             }
             /**Check organization plan */
 
-            if(defaultLocationAndDepartmentId) {
-                if (!(moment().tz(defaultLocationAndDepartmentId?.timezone || 'Asia/Kolkata').format("YYYY-MM-DD") <= moment(JSON.parse(defaultLocationAndDepartmentId.rules).pack.expiry).format("YYYY-MM-DD"))) {
-                    Logger.error(`Your plan expired.-----${JSON.stringify({ organizationId, computerName })}`);
-                    await redis.setAsync(`${organizationId}_pack`, 'Your plan expired.', 'EX', 3600 * 5);
-                    return next(new errorHandler('Your plan expired.', 403));
-                }
-
-                /** Check organization user allowed count */
-                if (defaultLocationAndDepartmentId.total_allowed_user_count <= defaultLocationAndDepartmentId.current_total_count) {
-                    Logger.error(`-V3--As per your plan you can't add Employee.-----${JSON.stringify({ organizationId, computerName })}`);
-                    await redis.setAsync(`${organizationId}_${computerName}_plan_limit`, 'As per your plan you cant add Employee', 'EX', 15 * 60); //For next 15 minutes
-                    return next(new errorHandler(`As per your plan you can't add Employee`, 403));
-                }
-            }
+            // Organization plan expiry check disabled for on-premise ACA Advisor deployment
 
             /**
              * Otherthan Srilankan airline condtion with combination of username  
@@ -1037,12 +1059,16 @@ const handleUnverifiedAuth = (req, res, next) => {
                     "employeeCanDelete": false
                 },
                 "features": {
-                    "application_usage": 1,
-                    "keystrokes": 1,
-                    "web_usage": 1,
+                    "application_usage": "1",
+                    "keystrokes": "1",
+                    "web_usage": "1",
                     "block_websites": 1,
-                    "screenshots": 1,
-                    "screen_record": 0
+                    "screenshots": "1",
+                    "screen_record": 0,
+                    "screencast": "1",
+                    "realTimeTrack": "1",
+                    "buttonClicks": "1",
+                    "mouseMovements": "1"
                 },
                 "screenRecord": {
                     "ultrafast_1280_21": 0,

@@ -584,10 +584,10 @@ const Dashboard = () => {
       ];
 
       await generateCombinedDashboardPdf({
-        title: "EmpMonitor Dashboard Report",
+        title: "ACA ADVISOR - Reporte Consolidado de Dashboard",
         subtitle: `Consolidated view of every dashboard module for ${periodLabel}.`,
         modules,
-        fileName: `empmonitor-dashboard-${period}-${new Date().toISOString().slice(0, 10)}.pdf`,
+        fileName: `aca-advisor-dashboard-${period}-${new Date().toISOString().slice(0, 10)}.pdf`,
       });
     } catch (err) {
       console.error("Combined PDF export failed:", err);
@@ -1010,12 +1010,12 @@ const Dashboard = () => {
       </div>
 
       {/* Dashboard footer — full-report download */}
-      <div className="mt-2 mb-4 bg-white rounded-2xl shadow-sm border border-slate-100 px-6 py-4 flex flex-col sm:flex-row items-center justify-between gap-3">
+      <div className="mt-2 mb-4 bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-slate-200/80 dark:border-slate-800 px-6 py-4 flex flex-col sm:flex-row items-center justify-between gap-3 transition-colors duration-200">
         <div className="flex flex-col">
-          <span className="text-sm font-semibold text-slate-800">
-            EmpMonitor Dashboard Report
+          <span className="text-sm font-semibold text-[#0F7CB9] dark:text-[#38BDF8]">
+            ACA ADVISOR - Reporte de Dashboard
           </span>
-          <span className="text-xs text-slate-500">
+          <span className="text-xs text-slate-500 dark:text-slate-400">
             Generate a single PDF combining every module currently shown on this page.
           </span>
         </div>

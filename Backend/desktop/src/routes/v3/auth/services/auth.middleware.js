@@ -41,11 +41,10 @@ class AuthMiddlewareService {
             // let userMetaData = await redis.getUserMetaData(userData.user_id);
             if (userMetaData.code == 200 && userMetaData.data) {
               req.decoded = userMetaData.data;
-              if (~~requestCount > (MAX_REQUEST_ALLOWED || 20) - 1 && !screenshotCustomRequestLimit.includes(userData?.organization_id)) {
-                return next(new errorHandler('Exceeded the number of allotted requests in a specific time frame', 401));
-              }
-              if (!screenshotCustomRequestLimit.includes(userData?.organization_id)) {
-                await redis.setAsync(`${userData.user_id}_agent_request`, ~~requestCount + 1, 'EX', (process.env.MAX_REQUEST_ALLOWED_TIMEFRAME || 60));
+              const agentTtl = Math.max(parseInt(process.env.MAX_REQUEST_ALLOWED_TIMEFRAME) || 300, 300);
+              await redis.setAsync(`${userData.user_id}_agent_request`, 1, 'EX', agentTtl);
+              if (userMetaData.data.employee_id && String(userMetaData.data.employee_id) !== String(userData.user_id)) {
+                await redis.setAsync(`${userMetaData.data.employee_id}_agent_request`, 1, 'EX', agentTtl);
               }
               next();
             } else {
@@ -99,12 +98,16 @@ const sendPlanExpiryResponse = (req, res, next) => {
                 "employeeCanDelete": false
               },
               "features": {
-                "application_usage": 1,
-                "keystrokes": 1,
-                "web_usage": 1,
+                "application_usage": "1",
+                "keystrokes": "1",
+                "web_usage": "1",
                 "block_websites": 1,
-                "screenshots": 1,
-                "screen_record": 0
+                "screenshots": "1",
+                "screen_record": 0,
+                "screencast": "1",
+                "realTimeTrack": "1",
+                "buttonClicks": "1",
+                "mouseMovements": "1"
               },
               "screenRecord": {
                 "ultrafast_1280_21": 0,

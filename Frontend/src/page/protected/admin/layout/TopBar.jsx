@@ -25,6 +25,7 @@ import BackToCloud from "@/components/BackToCloud";
 import aiWhiteLogo from "@/assets/ai_white_logo.svg";
 import EmpAiAssistant from "@/components/common/aempaiassistant";
 import { isEmpAiAssistantEnabled } from "@/lib/utils";
+import ThemeToggle from "@/components/common/ThemeToggle";
 import "./TopBar.css";
 
 export default function TopHeader() {
@@ -46,30 +47,30 @@ export default function TopHeader() {
   };
 
   return (
-    <div className="flex items-center justify-between border-b sticky top-0 z-50 border-slate-200/60 bg-white px-5 py-3 w-full">
+    <div className="flex items-center justify-between border-b sticky top-0 z-50 border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 px-5 py-3 w-full transition-colors duration-200 shadow-xs">
       {/* Left — Greeting */}
       <div className="flex items-center gap-2">
         {(!open || window.innerWidth <= 768) && (
-          <div className="trigger_button mr-3 flex h-7 w-7 items-center justify-center rounded-md bg-slate-200/70">
+          <div className="trigger_button mr-3 flex h-7 w-7 items-center justify-center rounded-md bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300">
             <SidebarTrigger />
           </div>
         )}
         <div className="md:flex flex-col hidden">
-          <span className="text-xs text-[#707EAE] font-bold">
+          <span className="text-xs text-[#0F7CB9] dark:text-[#38BDF8] font-bold tracking-wide">
             {t("topbar_hi")}{" "}
             {admin?.user_name &&
               admin?.user_name?.charAt(0)?.toUpperCase() +
                 admin?.user_name?.slice(1)}
             ,
           </span>
-          <h2 className="text-lg font-bold text-[#2B3674]">
+          <h2 className="text-lg font-bold text-[#0F7CB9] dark:text-white">
             {t("topbar_welcome")}
           </h2>
         </div>
       </div>
 
       {/* Right — Actions */}
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-3 sm:gap-4">
 
         {showEmpAiAssistant && (
           <div className="emp-ai-btn-wrap relative inline-flex">
@@ -80,23 +81,26 @@ export default function TopHeader() {
             <button
               type="button"
               onClick={() => setAiAssistantOpen(true)}
-              aria-label="Open EmpMonitor AI Assistant"
+              aria-label="Open AI Assistant"
               className="emp-ai-btn relative flex items-center gap-1.5 rounded-[9px] px-3 py-1.5 cursor-pointer text-white text-[10px] font-semibold"
             >
               <img src={aiWhiteLogo} alt="" className="h-3.75" />
-              EMP AI ASSISTANT
+              AI ASSISTANT
             </button>
           </div>
         )}
 
         <BackToCloud />
 
+        {/* Theme Toggle Selector (Light / Dark) */}
+        <ThemeToggle />
+
         {/* Help */}
         <a
           href="http://help.empmonitor.com/"
           target="_blank"
           rel="noreferrer"
-          className="flex items-center gap-1 text-sm text-gray-600 hover:text-gray-900 transition-colors"
+          className="flex items-center gap-1 text-sm text-slate-600 hover:text-[#0F7CB9] dark:text-slate-400 dark:hover:text-white transition-colors"
         >
           <HelpCircle className="h-4 w-4" />
           {t("topbar_help")}
@@ -108,81 +112,70 @@ export default function TopHeader() {
         {/* Profile Dropdown */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Avatar className="h-9 w-9 cursor-pointer ring-2 ring-blue-100 transition-all hover:ring-blue-200">
+            <Avatar className="h-9 w-9 cursor-pointer ring-2 ring-[#30A9E3]/30 transition-all hover:ring-[#30A9E3]">
               <AvatarImage src={userData.avatar} alt={userData.firstName} />
               <AvatarFallback>{userData.firstName?.[0]}</AvatarFallback>
             </Avatar>
           </DropdownMenuTrigger>
           <DropdownMenuContent
-            className="w-64 p-2 rounded-2xl shadow-2xl border-slate-100 mt-2"
+            className="w-64 p-2 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 mt-2"
             align="end"
           >
             {/* User Info Section */}
             <div className="flex items-center gap-3 px-3 py-4">
-              <Avatar className="h-10 w-10 ring-2 ring-blue-50">
+              <Avatar className="h-10 w-10 ring-2 ring-[#30A9E3]/20">
                 <AvatarImage src={userData.avatar} alt={userData.firstName} />
                 <AvatarFallback>{userData.firstName?.[0]}</AvatarFallback>
               </Avatar>
               <div className="flex flex-col overflow-hidden">
-                <span className="font-bold text-[#2B3674] truncate text-base">
+                <span className="font-bold text-[#0F7CB9] dark:text-white truncate text-base">
                   {admin?.user_name
                     ? admin.user_name.charAt(0).toUpperCase() +
                       admin.user_name.slice(1)
-                    : "Andrei Luca"}
+                    : "Admin"}
                 </span>
-                <span className="text-xs text-[#7B8EB1] font-medium">
+                <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">
                   {t("topbar_admin")}
                 </span>
               </div>
             </div>
 
-            <DropdownMenuSeparator className="bg-slate-100 border-dashed border-t h-px mx-0 my-2" />
+            <DropdownMenuSeparator className="bg-slate-100 dark:bg-slate-800 border-dashed border-t h-px mx-0 my-2" />
 
             {/* Menu Items */}
             <div className="space-y-1">
-              <DropdownMenuItem className="py-2.5 px-3 rounded-xl cursor-pointer hover:bg-slate-50 transition-colors group">
+              <DropdownMenuItem className="py-2.5 px-3 rounded-xl cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors group">
                 <div className="flex items-center gap-3 w-full">
-                  <div className="p-1.5 rounded-lg bg-blue-50 text-[#0066FF] group-hover:bg-blue-100 transition-colors">
+                  <div className="p-1.5 rounded-lg bg-[#E0F2FE] dark:bg-slate-800 text-[#0F7CB9] dark:text-[#38BDF8] group-hover:bg-[#B6DDE2]/60 transition-colors">
                     <Settings className="h-4 w-4" />
                   </div>
-                  <span className="text-sm font-semibold text-[#2B3674]">
+                  <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">
                     {t("topbar_account_settings")}
                   </span>
                 </div>
               </DropdownMenuItem>
 
-              <DropdownMenuItem className="py-2.5 px-3 rounded-xl cursor-pointer hover:bg-slate-50 transition-colors group"  onClick={() => setOpenUniPass(true)}>
+              <DropdownMenuItem className="py-2.5 px-3 rounded-xl cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors group" onClick={() => setOpenUniPass(true)}>
                 <div className="flex items-center gap-3 w-full">
-                  <div className="p-1.5 rounded-lg bg-blue-50 text-[#0066FF] group-hover:bg-blue-100 transition-colors">
+                  <div className="p-1.5 rounded-lg bg-[#E0F2FE] dark:bg-slate-800 text-[#0F7CB9] dark:text-[#38BDF8] group-hover:bg-[#B6DDE2]/60 transition-colors">
                     <ShieldCheck className="h-4 w-4" />
                   </div>
-                  <span className="text-sm font-semibold text-[#2B3674]">
+                  <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">
                     {t("topbar_uninstall_password")}
                   </span>
                 </div>
               </DropdownMenuItem>
-
-              {/* <DropdownMenuItem className="py-2.5 px-3 rounded-xl cursor-pointer hover:bg-slate-50 transition-colors group">
-                <div className="flex items-center gap-3 w-full">
-                  <div className="p-1.5 rounded-lg bg-blue-50 text-[#0066FF] group-hover:bg-blue-100 transition-colors">
-                    <Fingerprint className="h-4 w-4" />
-                  </div>
-                  <span className="text-sm font-semibold text-[#2B3674]">
-                    MFA Authentication
-                  </span>
-                </div>
-              </DropdownMenuItem> */}
             </div>
 
-            <DropdownMenuSeparator className="bg-slate-100 mx-0 my-2" />
+            <DropdownMenuSeparator className="bg-slate-100 dark:bg-slate-800 mx-0 my-2" />
 
             {/* Logout Section */}
             <DropdownMenuItem
-              className="py-2.5 px-3 rounded-xl cursor-pointer hover:bg-red-50 transition-colors group mt-1 text-red-600"
+              className="py-2.5 px-3 rounded-xl cursor-pointer hover:bg-red-50 dark:hover:bg-red-950/40 transition-colors group mt-1 text-red-600 dark:text-red-400"
               onClick={handleLogout}
             >
               <div className="flex items-center gap-3 w-full">
-                <div className="p-1.5 rounded-lg bg-red-50 text-[#FF4D49] group-hover:bg-red-100 transition-colors">
+                <div className="p-1.5 rounded-lg bg-red-50 dark:bg-red-950/60 text-[#EF4444] group-hover:bg-red-100 transition-colors">
                   <LogOut className="h-4 w-4" />
                 </div>
                 <span className="text-sm font-semibold">{t("topbar_logout")}</span>

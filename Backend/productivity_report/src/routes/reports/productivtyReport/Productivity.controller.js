@@ -209,20 +209,21 @@ class ProductivtyController {
         try {
             
             let attendanceData;
-            let attendanceDataCache = await getAsync(`${employee_id}_${date}_attendance`);
-            if (attendanceDataCache) attendanceData = JSON.parse(attendanceDataCache);
-            else {
-                const [attendanceDatas] = await ProductivityModel.getAttendanceDate(employee_id, date);
-                if (!attendanceDatas) throw new Error(`Attendance data not available with logsheetId - ${email}${moment(systemTimeUtc).format('YYYY-MM-DD')}`);
-                await setAsync(`${employee_id}_${date}_attendance`, JSON.stringify(attendanceDatas), 'EX', 10 * 60 * 60); // 10 hours
+            const [attendanceDatas] = await ProductivityModel.getAttendanceDate(employee_id, date);
+            if (attendanceDatas) {
                 attendanceData = attendanceDatas;
+                await setAsync(`${employee_id}_${date}_attendance`, JSON.stringify(attendanceDatas), 'EX', 300);
+            } else {
+                let attendanceDataCache = await getAsync(`${employee_id}_${date}_attendance`);
+                if (attendanceDataCache) attendanceData = JSON.parse(attendanceDataCache);
+                else throw new Error(`Attendance data not available with logsheetId - ${email}${moment(systemTimeUtc).format('YYYY-MM-DD')}`);
             }
 
             const { location_id, department_id, id: attendance_id, start_time, end_time } = attendanceData;
             // logged_duration calculation
             const login = moment(start_time);
             const logout = moment(end_time);
-            const logged_duration = logout.diff(login, 'seconds');
+            const logged_duration = Math.max(0, logout.diff(login, 'seconds'));
 
             const prReport = {
                 employee_id, department_id, location_id, organization_id,
@@ -244,7 +245,7 @@ class ProductivtyController {
             const lastUpdatedActivity = await ProductivityModel.getRecentActivity(attendance_id);
 
             const activityArr = [];
-            let ifKeyStrokeCondition = appUsage.length === 1 && appUsage[0].start == 0 && appUsage[0].end == 179 && Array.from(new Set(appUsage[0].keystrokes.split(""))).length == 1;
+            let ifKeyStrokeCondition = appUsage.length === 1 && appUsage[0].start == 0 && appUsage[0].end >= 179 && typeof appUsage[0].keystrokes === 'string' && appUsage[0].keystrokes.trim().length > 20 && Array.from(new Set(appUsage[0].keystrokes.trim().split(""))).length == 1;
 
             const systemInfoKey = `${employee_id}_system_info`;
             let [cachedSystemInfo, checkSilahKeyExist] = await Promise.all([

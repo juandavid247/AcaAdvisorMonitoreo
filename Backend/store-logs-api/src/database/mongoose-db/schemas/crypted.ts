@@ -1,12 +1,18 @@
 import * as crypto from 'crypto';
 
+const getKeyBuf = (key) => {
+    const keyBuf = Buffer.alloc(32);
+    Buffer.from(key || '').copy(keyBuf);
+    return keyBuf;
+};
+
 const encrypt = (text) => {
     const KEY = process.env.CRYPTO_PASSWORD;
     const IV_LENGTH = 16;
     try {
         const salt = crypto.randomBytes(2).toString('hex');
         const iv = crypto.randomBytes(IV_LENGTH);
-        const cipher = crypto.createCipheriv('aes-256-cbc', Buffer.from(KEY), iv);
+        const cipher = crypto.createCipheriv('aes-256-cbc', getKeyBuf(KEY), iv);
         const toEncode = `${salt}:${JSON.stringify(text)}`;
         const encrypted = Buffer.concat([cipher.update(toEncode), cipher.final()]);
         return `${salt}:${iv.toString('hex')}:${encrypted.toString('hex')}`;
@@ -22,7 +28,7 @@ const decrypt = (text) => {
         const salt = textParts.shift();
         const iv = Buffer.from(textParts.shift(), 'hex');
         const encryptedText = Buffer.from(textParts.join(':'), 'hex');
-        const decipher = crypto.createDecipheriv('aes-256-cbc', Buffer.from(KEY), iv);
+        const decipher = crypto.createDecipheriv('aes-256-cbc', getKeyBuf(KEY), iv);
         const decrypted = Buffer.concat([decipher.update(encryptedText), decipher.final()]).toString();
         if (decrypted.indexOf(`${salt}:`) === 0) {
             return JSON.parse(decrypted.substr(salt.length + 1));

@@ -118,7 +118,7 @@ const formatSecondsToMinutes = (value) => {
 
 const formatUtcToTimezone = (utcString, timezone, attendanceDate) => {
     if (!utcString) return "-";
-    const m = moment.utc(utcString).tz(timezone || "Asia/Kolkata");
+    const m = moment.utc(utcString).tz(timezone || "America/Bogota");
     if (!m.isValid()) return "-";
     // No-activity rows carry a placeholder start/end of local midnight (stored
     // as e.g. 18:30:00Z for IST). Converting that to the employee timezone
@@ -135,7 +135,7 @@ const formatUtcToTimezone = (utcString, timezone, attendanceDate) => {
 };
 
 const mapEmployeeRow = (emp) => {
-    const tz = emp.timezone || "Asia/Kolkata";
+    const tz = emp.timezone || "America/Bogota";
     const firstName = emp.first_name || "";
     const lastName = emp.last_name || "";
     const fullName = `${firstName} ${lastName}`.trim() || "-";

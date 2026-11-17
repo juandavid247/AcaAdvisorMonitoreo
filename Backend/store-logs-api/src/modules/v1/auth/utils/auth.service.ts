@@ -45,23 +45,19 @@ export class AuthService {
 
             const decoded = JSON.parse(decryptedSignature.decoded);
 
-            const [userData, requestCount] = await Promise.all([
+            const [userData] = await Promise.all([
                 await this.redisService.getClient().get(decoded.user_id),
-                await this.redisService.getClient().get(`${decoded.user_id}_agent_request`)
-
             ]);
 
-            //Check request limit
-            if (~~requestCount > +(MAX_REQUEST_ALLOWED || 20) - 1 && !screenshotCustomRequestLimit.includes(decoded?.organization_id)) {
-                throw new HttpException({
-                    statusCode: 401,
-                    error: 'Exceeded the number of allotted requests in a specific time frame',
-                    message: 'Exceeded the number of allotted requests in a specific time frame',
-                }, 401);
-            }
-            //Set request limit
-            if (!screenshotCustomRequestLimit.includes(decoded?.organization_id)) {
-                await this.redisService.getClient().set(`${decoded.user_id}_agent_request`, ~~requestCount + 1, 'EX', +(process.env.MAX_REQUEST_ALLOWED_TIMEFRAME || 60));
+            const agentTtl = Math.max(+(process.env.MAX_REQUEST_ALLOWED_TIMEFRAME || 300), 300);
+            await this.redisService.getClient().set(`${decoded.user_id}_agent_request`, 1, 'EX', agentTtl);
+            if (userData) {
+                try {
+                    const parsedUser = JSON.parse(userData);
+                    if (parsedUser.employee_id && String(parsedUser.employee_id) !== String(decoded.user_id)) {
+                        await this.redisService.getClient().set(`${parsedUser.employee_id}_agent_request`, 1, 'EX', agentTtl);
+                    }
+                } catch (e) {}
             }
             return userData;
             // return await this.redisService.getClient().get(decoded.user_id);

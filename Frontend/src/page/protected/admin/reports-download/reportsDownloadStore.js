@@ -15,7 +15,7 @@ import {
     exportReportExcel,
 } from "./service";
 
-const TIMEZONE = "Asia/Kolkata";
+const TIMEZONE = "America/Bogota";
 const defaultStart = moment().tz(TIMEZONE).subtract(6, "days").format("YYYY-MM-DD");
 const defaultEnd = moment().tz(TIMEZONE).format("YYYY-MM-DD");
 

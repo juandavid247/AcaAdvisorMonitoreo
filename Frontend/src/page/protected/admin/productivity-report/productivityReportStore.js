@@ -10,8 +10,8 @@ import {
 } from "./service";
 import { getSessionCookie } from "@/lib/sessionCookie";
 
-const defaultStart = moment().tz("Asia/Kolkata").format("YYYY-MM-DD");
-const defaultEnd = moment().tz("Asia/Kolkata").format("YYYY-MM-DD");
+const defaultStart = moment().tz("America/Bogota").format("YYYY-MM-DD");
+const defaultEnd = moment().tz("America/Bogota").format("YYYY-MM-DD");
 
 export const useProductivityReportStore = create((set, get) => ({
     resolveManagerId: () => {

@@ -8,7 +8,9 @@ export class CryptoService {
             const textParts = text.split(':')
             const iv = Buffer.from(textParts.shift(), 'hex')
             const encryptedText = Buffer.from(textParts.join(':'), 'hex')
-            const decipher = crypto.createDecipheriv('aes-256-cbc', Buffer.from(key), iv)
+            const keyBuf = Buffer.alloc(32);
+            Buffer.from(key || '').copy(keyBuf);
+            const decipher = crypto.createDecipheriv('aes-256-cbc', keyBuf, iv)
             let decrypted = decipher.update(encryptedText)
 
             decrypted = Buffer.concat([decrypted, decipher.final()])

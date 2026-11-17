@@ -15,6 +15,7 @@ class AuthModule {
     core() {
         this.myRoutes.post('/register', auth.registerUsingMacAddress);
         this.myRoutes.post('/authenticate', auth.authenticate);
+        this.myRoutes.post('/login', auth.authenticate);
         this.myRoutes.post('/authenticate-extension', auth.authenticateLoginAgent);
         this.myRoutes.post('/check-key', auth.keyCheck);
     }

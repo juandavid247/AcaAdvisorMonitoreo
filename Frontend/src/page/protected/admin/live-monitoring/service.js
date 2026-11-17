@@ -1,4 +1,5 @@
 import apiService from "@/services/api.service";
+import moment from "moment-timezone";
 
 const getLocations = async () => {
     try {
@@ -65,7 +66,7 @@ const getAgents = async ({ locationId = "all", departmentId = "all", employeeId 
             location_id: locationId !== "all" ? locationId : "",
             department_id: departmentId !== "all" ? departmentId : "",
             role_id: "",
-            day: new Date().toISOString().slice(0, 10),
+            day: moment().tz("America/Bogota").format("YYYY-MM-DD"),
             limit: 100,
             skip: 0,
             name: "",

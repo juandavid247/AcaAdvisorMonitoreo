@@ -7,9 +7,9 @@ const Footer = ({ show }) => {
   if (!show) return null;
 
   return (
-    <footer className="w-full bg-slate-200  px-6 py-3 flex flex-col-reverse sm:flex-row gap-2 items-center justify-between mt-auto">
-      <div className="text-gray-500 text-[10px]  sm:text-sm font-medium">
-        {t("footer_copyright")} {new Date().getFullYear()} © EmpMonitor {t("footer_all_rights")}
+    <footer className="w-full bg-slate-100 dark:bg-slate-900 border-t border-slate-200/80 dark:border-slate-800 px-6 py-3.5 flex flex-col-reverse sm:flex-row gap-2 items-center justify-between mt-auto transition-colors duration-200">
+      <div className="text-slate-500 dark:text-slate-400 text-[11px] sm:text-xs font-medium">
+        © {new Date().getFullYear()} <span className="font-semibold text-[#0F7CB9] dark:text-[#38BDF8]">ACA ADVISOR S.A.S.</span> • {t("footer_all_rights") || "Todos los derechos reservados."}
       </div>
 
       {/* <button className="flex items-center gap-2 bg-[#0061ff] hover:bg-[#0051d5] text-white text-xs 2xl:px-2 px-4 py-2 rounded-lg transition-colors duration-200 font-medium">

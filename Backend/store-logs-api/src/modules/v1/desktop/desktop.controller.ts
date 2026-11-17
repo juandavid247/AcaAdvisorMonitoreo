@@ -41,7 +41,7 @@ export class DesktopController {
     private readonly systemLogsService: SystemLogsService,
   ) { }
 
-  @Post('add-activity-log')
+  @Post(['add-activity-log', 'add-activity'])
   @ApiOperation({ description: 'Insert app usage and user activity', summary: 'Done' })
   async insertUsageActivityData(@Req() req, @Body() usageActivityDto: UsageActivityDataDTO): Promise<any> {
     // return await this.activityService.insertUsageDataHandler(req.user, usageActivityDto, req.headers.authorization ? req.headers.authorization : null);

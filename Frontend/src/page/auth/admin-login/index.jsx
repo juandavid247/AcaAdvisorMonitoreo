@@ -7,11 +7,13 @@ import { syncLanguageFromSession } from "@/i18n/syncLanguage";
 import bgIllustration from "@/assets/login-bg.png";
 import "./style.css";
 import empLogo from "@/assets/emp.png";
+import smallempLogo from "@/assets/smallemp.png";
 import userIcon from "@/assets/user-setting.png";
 // ── shadcn/ui components ──────────────────────────────────────────────────
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import ThemeToggle from "@/components/common/ThemeToggle";
 
 import {
   Dialog,
@@ -111,42 +113,44 @@ export const AdminLogin = () => {
 
   return (
     <div
-      className="relative min-h-screen flex flex-col overflow-hidden"
-      style={{
-        backgroundImage: `url(${bgIllustration})`,
-        backgroundSize: "cover",
-        backgroundPosition: "left center",
-        backgroundRepeat: "no-repeat",
-      }}
+      className="relative min-h-screen flex flex-col overflow-hidden bg-[#F8FAFC] dark:bg-[#0B1120] text-slate-800 dark:text-slate-100 transition-colors duration-300 aca-hex-bg"
     >
       {/* ── Header ────────────────────────────────────────────────────── */}
-      <header className="animate-fade-down relative z-10 flex items-center justify-between px-8 py-5">
+      <header className="animate-fade-down relative z-10 flex items-center justify-between px-6 sm:px-12 py-5 sm:py-7">
         <div className="flex items-center gap-3">
-          <img src={empLogo} alt="" className="w-40" />
+          <img
+            src={empLogo}
+            alt="ACA ADVISOR S.A.S."
+            className="h-24 sm:h-32 md:h-36 w-auto max-w-[280px] sm:max-w-[420px] object-contain drop-shadow-md transition-all duration-200"
+          />
+        </div>
+        <div className="flex items-center gap-3">
+          <ThemeToggle />
         </div>
       </header>
 
       {/* ── Main ──────────────────────────────────────────────────────── */}
-      <main className="relative z-10 flex flex-1  items-center justify-end px-6 sm:px-16 lg:px-24 pb-12 max-w-[1700px]">
-        <div className="flex flex-col items-center justify-center max-w-[500px] w-full gap-4">
+      <main className="relative z-10 flex flex-1 items-center justify-end px-6 sm:px-16 lg:px-24 pb-12 max-w-[1700px] w-full">
+        <div className="flex flex-col items-center justify-center max-w-[480px] w-full gap-4">
           <div
-            className="animate-card-rise relative w-full  rounded-[63px] overflow-hidden px-12 py-10"
-            style={{
-              background: "rgba(255,255,255,0.92)",
-              backdropFilter: "blur(24px)",
-              WebkitBackdropFilter: "blur(24px)",
-              boxShadow:
-                "0 0 0 1px rgba(92,225,253,0.14), 0 4px 24px rgba(32,121,253,0.1), 0 20px 60px rgba(32,121,253,0.14)",
-            }}
+            className="animate-card-rise relative w-full rounded-3xl overflow-hidden px-8 sm:px-12 py-10 border border-slate-200/90 dark:border-slate-800/90 bg-white/95 dark:bg-[#131E32]/95 backdrop-blur-xl shadow-2xl shadow-sky-500/5 dark:shadow-black/60 transition-all duration-300"
           >
-            {/* ── Avatar Icon ── */}
-            <div className="flex justify-center mb-5">
-              <img src={userIcon} alt="icon" className="w-10" />
+            {/* Top brand accent bar */}
+            <div className="absolute top-0 left-0 right-0 h-1.5 shimmer-bar" />
+
+            {/* ── Avatar / Brand Icon ── */}
+            <div className="flex justify-center mb-5 mt-2">
+              <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-[#30A9E3]/15 to-[#3A9F6B]/15 dark:from-[#30A9E3]/25 dark:to-[#3A9F6B]/25 flex items-center justify-center border border-[#30A9E3]/25 shadow-md">
+                <img src={smallempLogo} alt="ACA ADVISOR" className="w-10 h-10 object-contain drop-shadow-sm" />
+              </div>
             </div>
 
             {/* Title */}
             <div className="text-center mb-7">
-              <h2 className="text-[20px] font-bold tracking-tight text-[#0f1e3a]">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-[#30A9E3] dark:text-[#38BDF8]">
+                ACA ADVISOR S.A.S.
+              </span>
+              <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-[#0F7CB9] dark:text-white mt-1">
                 {t("auth_login_to_account")}
               </h2>
             </div>
@@ -239,7 +243,7 @@ export const AdminLogin = () => {
                 <Button
                   type="submit"
                   disabled={loading}
-                  className="login-btn w-full h-11 rounded-xl text-[15px] font-bold text-white border-none transition-all duration-300 disabled:opacity-75 disabled:cursor-not-allowed bg-gradient-to-b from-[#5CE1FD] to-[#2079FD]"
+                  className="login-btn w-full h-11 rounded-xl text-[15px] font-bold text-white border-none transition-all duration-300 disabled:opacity-75 disabled:cursor-not-allowed bg-gradient-to-r from-[#30A9E3] to-[#0F7CB9] hover:from-[#2998cd] hover:to-[#0d699c] shadow-md shadow-[#30A9E3]/25"
                 >
                   {loading ? (
                     <span className="flex items-center gap-2">
@@ -258,8 +262,8 @@ export const AdminLogin = () => {
                   type="button"
                   variant="ghost"
                   onClick={() => { setForgotEmail(""); setForgotMsg({ type: "", text: "" }); setForgotOpen(true); }}
-                  className="h-auto p-0 text-[13px] font-semibold text-[#2079FD]
-                  hover:text-[#2079FD] hover:bg-transparent hover:underline
+                  className="h-auto p-0 text-[13px] font-semibold text-[#0F7CB9] dark:text-[#38BDF8]
+                  hover:text-[#30A9E3] hover:bg-transparent hover:underline
                   transition-opacity duration-200"
                 >
                   {t("auth_forgot_password")}
@@ -268,13 +272,13 @@ export const AdminLogin = () => {
             </form>
 
             {/* Register row */}
-            <p className="text-center text-[13px] text-[#7aadca] leading-relaxed mt-5">
+            <p className="text-center text-[13px] text-slate-500 dark:text-slate-400 leading-relaxed mt-5">
               {t("auth_not_registered")}{" "}
               <Button
                 type="button"
                 variant="ghost"
-                className="h-auto p-0 text-[13px] font-bold text-[#2079FD]
-                hover:text-[#2079FD] hover:bg-transparent hover:underline"
+                className="h-auto p-0 text-[13px] font-bold text-[#0F7CB9] dark:text-[#38BDF8]
+                hover:text-[#30A9E3] hover:bg-transparent hover:underline"
               >
                 {t("auth_sign_up")}
               </Button>
@@ -282,28 +286,28 @@ export const AdminLogin = () => {
               <Button
                 type="button"
                 variant="ghost"
-                className="h-auto p-0 text-[13px] font-bold text-[#2079FD]
-                hover:text-[#2079FD] hover:bg-transparent hover:underline"
+                className="h-auto p-0 text-[13px] font-bold text-[#0F7CB9] dark:text-[#38BDF8]
+                hover:text-[#30A9E3] hover:bg-transparent hover:underline"
                 onClick={() => navigate("/login")}
               >
                 {t("auth_login")}
               </Button>
             </p>
           </div>
-          <span className="text-xs text-[#9bbdce]">© {new Date().getFullYear()} – EmpMonitor</span>
+          <span className="text-xs text-slate-500 dark:text-slate-400">© {new Date().getFullYear()} – ACA ADVISOR S.A.S. Todos los derechos reservados.</span>
         </div>
         {/* ── Login Card ──────────────────────────────────────────────── */}
       </main>
 
       {/* ── Forgot Password Modal ── */}
       <Dialog open={forgotOpen} onOpenChange={setForgotOpen}>
-        <DialogContent className="max-w-[95vw] sm:max-w-[500px] rounded-2xl p-0 border-0 shadow-2xl overflow-hidden gap-0 [&>button:last-child]:hidden">
+        <DialogContent className="max-w-[95vw] sm:max-w-[500px] rounded-2xl p-0 border border-slate-200 dark:border-slate-800 shadow-2xl overflow-hidden gap-0 [&>button:last-child]:hidden bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100">
           <DialogTitle className="sr-only">{t("auth_forgot_password_title")}</DialogTitle>
           <DialogDescription className="sr-only">Enter your email to reset your password</DialogDescription>
           {/* Header */}
           <div
             className="px-6 py-4 flex items-center justify-between"
-            style={{ background: "linear-gradient(135deg, #2079FD 0%, #5CE1FD 100%)" }}
+            style={{ background: "linear-gradient(135deg, #0F7CB9 0%, #30A9E3 100%)" }}
           >
             <h2 className="text-white text-lg font-bold">{t("auth_forgot_password_title")}</h2>
             <DialogClose className="text-white hover:text-white/80 transition-colors focus:outline-none">

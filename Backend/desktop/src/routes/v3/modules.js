@@ -26,12 +26,13 @@ class Routes {
         this.myRoutes.use('/', new openModule().getRouters());
         this.myRoutes.use('/auth', new authModule().getRouters());
         this.myRoutes.use('/authenticate', new authModule().getRouters());
+        this.myRoutes.use('/employee', new authModule().getRouters());
         this.myRoutes.use('/agent', new UninstallAgentModule().getRouters());
         // this.myRoutes.use('/project', (req, res) => res.status(406).send());
         this.myRoutes.use('/rdp-request', new RDPRequestModule().getRouters());
         this.myRoutes.use(authMiddleware.authenticate);
         this.myRoutes.use('/user', new userModule().getRouters());
-        // this.myRoutes.use('/clock-in', new clockInModule().getRouters());
+        this.myRoutes.use('/clock-in', new clockInModule().getRouters());
         this.myRoutes.use('/project', new projectModule().getRouters());
         this.myRoutes.use('/firewall', new firewallModule().getRouters());
         this.myRoutes.use('/report', new reportModule().getRoutes());

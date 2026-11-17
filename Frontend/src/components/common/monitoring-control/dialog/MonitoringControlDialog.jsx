@@ -329,6 +329,18 @@ const MonitoringControlDialog = ({ open, onOpenChange }) => {
 
         // Build track_data matching PHP's SettingsController transform
         const trackData = { ...updatedRules }
+        trackData.dlpFeatures = {
+            ...trackData.dlpFeatures,
+            usb_detec: "1",
+            usb_block: trackData.usbDisable ? "1" : "0",
+            blue_detec: trackData.dlpFeatures?.bluetoothDetection || "0",
+            blue_block: trackData.dlpFeatures?.bluetoothBlock || "0",
+            clip_detec: trackData.dlpFeatures?.clipboardDetection || "0",
+            clip_block: trackData.dlpFeatures?.clipboardBlock || "0",
+            system_lock: trackData.systemLock || "0",
+            app_block: "0",
+            web_block: "0",
+        }
 
         // Screen record settings (PHP merges these from separate fields)
         trackData.screen_record = {

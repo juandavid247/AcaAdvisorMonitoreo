@@ -169,7 +169,7 @@ const normalizeInsightRow = (row) => {
   };
 };
 
-export const getEmployeeInsights = async ({ employeeId, date, timezone = "Asia/Kolkata" } = {}) => {
+export const getEmployeeInsights = async ({ employeeId, date, timezone = "America/Bogota" } = {}) => {
   try {
     if (!employeeId || employeeId === "all") {
       return { stats: null, raw: null };

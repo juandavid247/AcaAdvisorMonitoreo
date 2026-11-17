@@ -19,7 +19,9 @@ class OpenModule {
         this.myRoutes.put('/app-info/update', openRoutes.updateAppInfo);
         this.myRoutes.post('/reset-redis', openRoutes.resetRedis);
         this.myRoutes.post('/get-employee-detail', openRoutes.getPlanExpiry);
+        this.myRoutes.get('/get-employee-detail', openRoutes.getPlanExpiry);
         this.myRoutes.post('/get-organization-detail', openRoutes.getOrganizationPlanDetails);
+        this.myRoutes.get('/get-organization-detail', openRoutes.getOrganizationPlanDetails);
     }
 
     getRouters() {

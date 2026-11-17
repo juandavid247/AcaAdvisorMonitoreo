@@ -111,7 +111,7 @@ class App {
             }))
         }
         // Added security headers
-        app.use(helmet());
+        app.use(helmet({ crossOriginResourcePolicy: { policy: "cross-origin" } }));
 
         // handling DDOS attacks by stopeing req after specified time with specific req calls
         // app.use(new rateLimit({ windowMs: parseInt(process.env.RATE_LIMIT_DURATION) * 60 * 1000, max: parseInt(process.env.RATE_LIMIT_REQUEST_ALLOWED) }));
@@ -131,10 +131,11 @@ class App {
         // }));
         // CORS
         app.use(function (req, res, next) {
-            const allowedOrigins = (process.env.ALLOWED_ORIGINS || process.env.CORS_ORIGIN || 'http://localhost:5174').split(',');
             const origin = req.headers.origin;
-            if (origin && allowedOrigins.includes(origin)) {
+            if (origin) {
                 res.setHeader('Access-Control-Allow-Origin', origin);
+            } else {
+                res.setHeader('Access-Control-Allow-Origin', '*');
             }
             res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,PATCH,DELETE,OPTIONS');
             res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization,X-Requested-With,Cache-Control,Pragma,Expires');
@@ -158,6 +159,7 @@ class App {
 
         //Store satatic file
         app.use(express.static(path.join(__dirname, './../public/')));
+        app.use('/screenshots-static', express.static(process.env.SHARED_SCREENSHOTS_PATH || '/app/shared_screenshots'));
         // egistering routes
         // addign swagger for the above routes
         app.use('/api/v3/explorer', swaggerUi.serve, (...args) => swaggerUi.setup(swaggerDocumentV3)(...args));

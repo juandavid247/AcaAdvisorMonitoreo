@@ -83,7 +83,9 @@ class ClockInOutService {
     async record(req, res, next) {
         try {
             const dataDto = await validator.validateClockInParams().validateAsync(req.body);
-            const employee_id = req.decoded.employee_id;
+            const employee_id = req.decoded.employee_id || req.decoded.id;
+            const organization_id = req.decoded.organization_id || req.decoded.admin_id || 1;
+            const userTz = req.decoded.timezone || 'America/Bogota';
 
             if (employee_id) {
                 if (dataDto.data.constructor === Array && dataDto.data.length > 0) {
@@ -91,29 +93,51 @@ class ClockInOutService {
                     for (let i = 0; i < dataDto.data.length; i++) {
                         let { startDate, endDate, type, mode, reason } = dataDto.data[i];
 
-                        // prepare data for calculation
-                        startDate = moment(startDate).tz('Africa/Bamako');
-                        const curStartDate = startDate.format('YYYY-MM-DD HH:mm:ss');
+                        const startUtc = moment.utc(startDate);
+                        const curStartDate = startUtc.format('YYYY-MM-DD HH:mm:ss');
+                        const localDate = startUtc.clone().tz(userTz).format('YYYY-MM-DD');
                         let duration = 0;
+                        let curEndDate = null;
 
                         if (endDate && endDate !== '') {
-                            endDate = moment(endDate).tz('Africa/Bamako');
-                            duration = moment.duration(endDate.diff(startDate)).asSeconds();
+                            const endUtc = moment.utc(endDate);
+                            curEndDate = endUtc.format('YYYY-MM-DD HH:mm:ss');
+                            duration = Math.max(0, Math.round(moment.duration(endUtc.diff(startUtc)).asSeconds()));
                         }
 
-                        // find
-                        const dbTimeSheetData = await clockInModel.findCorrespondingTimeSheetByEmpId(employee_id, curStartDate, type, mode);
+                        // Ensure employee_attendance row exists for this localDate
+                        let [attendanceData] = await clockInModel.getUserAttendance(
+                            localDate,
+                            employee_id,
+                            organization_id
+                        );
+                        let attendanceId = attendanceData ? attendanceData.id : null;
+                        if (!attendanceId) {
+                            const createdAtt = await clockInModel.createAttendanceEntry(
+                                localDate,
+                                employee_id,
+                                organization_id,
+                                curStartDate,
+                                curEndDate || curStartDate
+                            );
+                            attendanceId = createdAtt ? createdAtt.insertId : null;
+                        } else if (curEndDate) {
+                            await clockInModel.updateAttendanceEndTime(attendanceId, curEndDate);
+                        }
 
-                        if (dbTimeSheetData && dbTimeSheetData.length > 0) { // update
-                            if (endDate && endDate !== '') {
-                                await clockInModel.updateTimeSheet(dbTimeSheetData[0].id, endDate.format('YYYY-MM-DD HH:mm:ss'), duration);
+                        // Find existing timesheet entry by employee_id or attendance_id
+                        const dbTimeSheetData = await clockInModel.findCorrespondingTimeSheetByEmpId(employee_id, curStartDate, type, mode, attendanceId);
+
+                        if (dbTimeSheetData && dbTimeSheetData.length > 0) {
+                            if (curEndDate) {
+                                await clockInModel.updateTimeSheet(dbTimeSheetData[0].id, curEndDate, duration, attendanceId);
                             }
-                        } else { // insert
+                        } else {
                             await clockInModel.insertInTimeSheetWithEmpId(
                                 employee_id,
-                                startDate.format('YYYY-MM-DD HH:mm:ss'),
-                                endDate && endDate !== '' ? endDate.format('YYYY-MM-DD HH:mm:ss') : null,
-                                type, mode, duration, reason
+                                curStartDate,
+                                curEndDate,
+                                type, mode, duration, reason, attendanceId
                             );
                         }
                     }
@@ -131,8 +155,9 @@ class ClockInOutService {
         try {
             const dataDto = await validator.validateDetailedClockInParams().validateAsync(req.body);
             const user = req.decoded;
-            const startDate = moment(dataDto.startDate).utc().format('YYYY-MM-DD');
-            const endDate = moment(dataDto.endDate).utc().format('YYYY-MM-DD');
+            const userTz = user.timezone || 'America/Bogota';
+            const startDate = moment(dataDto.startDate).tz(userTz).format('YYYY-MM-DD');
+            const endDate = moment(dataDto.endDate).tz(userTz).format('YYYY-MM-DD');
             const employeeId = user.employee_id || user.id;
 
             if (employeeId) {

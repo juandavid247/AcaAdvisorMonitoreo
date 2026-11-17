@@ -57,11 +57,23 @@ class ClockInModel {
         return mySql.query(sql);
     }
 
-    findCorrespondingTimeSheetByEmpId(employee_id, startDate, type, mode) {
+    findCorrespondingTimeSheetByEmpId(employee_id, startDate, type, mode, attendanceId = null) {
         const query = `
         SELECT id FROM ${this.empTimeSheetTable} WHERE 
-        employee_id = ? AND start_time = ? AND type = ? AND mode = ? LIMIT 1`;
-        const paramsArray = [employee_id, startDate, type, mode];
+        (employee_id = ? OR (attendance_id IS NOT NULL AND attendance_id = ?)) AND start_time = ? AND type = ? AND mode = ? LIMIT 1`;
+        const paramsArray = [employee_id, attendanceId, startDate, type, mode];
+        const sql = formatSql(query, paramsArray);
+
+        if (this.isTimeout) {
+            return mySql.query({ sql, timeout: this.timeout });
+        }
+
+        return mySql.query(sql);
+    }
+
+    updateAttendanceEndTime(attendanceId, endDate) {
+        const query = `UPDATE ${this.empAttendanceTable} SET end_time = GREATEST(end_time, ?) WHERE id = ?`;
+        const paramsArray = [endDate, attendanceId];
         const sql = formatSql(query, paramsArray);
 
         if (this.isTimeout) {
@@ -85,14 +97,14 @@ class ClockInModel {
         return mySql.query(sql);
     }
 
-    insertInTimeSheetWithEmpId(employee_id, startDate, endDate, type, mode, duration, reason) {
+    insertInTimeSheetWithEmpId(employee_id, startDate, endDate, type, mode, duration, reason, attendanceId = null) {
         endDate = endDate ? endDate : null;
         reason = reason ? reason : null;
 
         const query = `
-        INSERT INTO ${this.empTimeSheetTable} (employee_id, start_time, end_time, type,mode, duration, reason) 
-        VALUES (?, ?, ?, ?, ?, ?, ?)`;
-        const paramsArray = [employee_id, startDate, endDate, type, mode, duration, reason];
+        INSERT INTO ${this.empTimeSheetTable} (attendance_id, employee_id, start_time, end_time, type, mode, duration, reason) 
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)`;
+        const paramsArray = [attendanceId, employee_id, startDate, endDate, type, mode, duration, reason];
         const sql = formatSql(query, paramsArray);
 
         if (this.isTimeout) {
@@ -102,9 +114,9 @@ class ClockInModel {
         return mySql.query(sql);
     }
 
-    updateTimeSheet(timeSheetId, endDate, duration) {
-        const query = `UPDATE ${this.empTimeSheetTable} SET end_time = ?, duration = ? WHERE id = ?`;
-        const paramsArray = [endDate, duration, timeSheetId];
+    updateTimeSheet(timeSheetId, endDate, duration, attendanceId = null) {
+        const query = `UPDATE ${this.empTimeSheetTable} SET end_time = ?, duration = ?, attendance_id = COALESCE(attendance_id, ?) WHERE id = ?`;
+        const paramsArray = [endDate, duration, attendanceId, timeSheetId];
         const sql = formatSql(query, paramsArray);
 
         if (this.isTimeout) {
@@ -116,9 +128,9 @@ class ClockInModel {
 
     getUserAttendanceDayWiseWithTimesheetData(startDate, endDate, employee_id) {
         const query = `
-        SELECT ea.id, ea.date, ea.employee_id, et.id as timesheet_id, et.attendance_id, et.start_time, et.end_time, et.type, et.mode, et.duration 
+        SELECT ea.id, ea.date, ea.employee_id, et.id as timesheet_id, COALESCE(et.attendance_id, ea.id) as attendance_id, et.start_time, et.end_time, et.type, et.mode, et.duration 
         FROM ${this.empAttendanceTable} ea 
-        LEFT JOIN ${this.empTimeSheetTable} et ON et.attendance_id = ea.id 
+        LEFT JOIN ${this.empTimeSheetTable} et ON (et.attendance_id = ea.id OR (et.employee_id = ea.employee_id AND DATE(et.start_time) = ea.date))
         WHERE ea.date BETWEEN ? AND ? AND ea.employee_id = ?`;
         const paramsArray = [startDate, endDate, employee_id];
         const sql = formatSql(query, paramsArray);

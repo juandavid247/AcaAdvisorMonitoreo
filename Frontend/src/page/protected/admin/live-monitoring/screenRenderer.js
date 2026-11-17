@@ -41,6 +41,7 @@ export const parseImageStream = (raw) => {
     const sortedIndices = Object.keys(screens).sort((a, b) => Number(a) - Number(b));
     return {
         userId: raw.user_id,
+        employeeId: raw.employee_id,
         screens: sortedIndices.map((i) => screens[i]),
     };
 };
@@ -68,7 +69,7 @@ const drawSingleScreen = (canvas, screenData) => {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         ctx.drawImage(img, 0, 0, origW, origH);
     };
-    img.src = `data:image/png;base64,${screenData.image}`;
+    img.src = screenData.image.startsWith("data:") ? screenData.image : `data:image/jpeg;base64,${screenData.image}`;
 };
 
 const drawDualScreen = (canvas, screen1, screen2) => {
@@ -105,8 +106,8 @@ const drawDualScreen = (canvas, screen1, screen2) => {
 
     img1.onload = drawIfReady;
     img2.onload = drawIfReady;
-    img1.src = `data:image/png;base64,${screen1.image}`;
-    img2.src = `data:image/png;base64,${screen2.image}`;
+    img1.src = screen1.image.startsWith("data:") ? screen1.image : `data:image/jpeg;base64,${screen1.image}`;
+    img2.src = screen2.image.startsWith("data:") ? screen2.image : `data:image/jpeg;base64,${screen2.image}`;
 };
 
 export const drawOfflinePlaceholder = (canvas) => {
@@ -135,21 +136,23 @@ export const drawOfflinePlaceholder = (canvas) => {
 
 export const registerCanvas = (userId, canvas) => {
     if (!canvas) return;
-    const existing = canvasRegistry.get(userId);
+    const numId = Number(userId);
+    const existing = canvasRegistry.get(numId);
     if (existing?.canvas === canvas) return;
     if (existing?.resizeObserver) existing.resizeObserver.disconnect();
-    canvasRegistry.set(userId, { canvas, resizeObserver: null });
+    canvasRegistry.set(numId, { canvas, resizeObserver: null });
 };
 
 export const unregisterCanvas = (userId) => {
-    const entry = canvasRegistry.get(userId);
+    const numId = Number(userId);
+    const entry = canvasRegistry.get(numId);
     if (entry?.resizeObserver) entry.resizeObserver.disconnect();
-    canvasRegistry.delete(userId);
+    canvasRegistry.delete(numId);
 };
 
 export const setModalCanvas = (canvas, userId) => {
     modalCanvas = canvas;
-    modalUserId = userId;
+    modalUserId = Number(userId);
     modalSelectedScreen = 0;
 };
 
@@ -168,11 +171,13 @@ export const setModalSelectedScreen = (idx) => {
  * Returns screen count.
  */
 export const renderScreen = (parsed, isDualScreen = false) => {
-    const { userId, screens } = parsed;
+    const { userId, employeeId, screens } = parsed;
     if (!screens.length) return 0;
+    const numId = Number(userId);
+    const numEmpId = employeeId ? Number(employeeId) : null;
 
-    // Draw to card canvas
-    const entry = canvasRegistry.get(userId);
+    // Draw to card canvas (support both uId and employeeId keys)
+    const entry = canvasRegistry.get(numId) || (numEmpId ? canvasRegistry.get(numEmpId) : null);
     if (entry?.canvas) {
         if (isDualScreen && screens.length >= 2) {
             drawDualScreen(entry.canvas, screens[0], screens[1]);
@@ -182,7 +187,7 @@ export const renderScreen = (parsed, isDualScreen = false) => {
     }
 
     // Draw to modal canvas if this user is selected
-    if (modalCanvas && modalUserId === userId) {
+    if (modalCanvas && (Number(modalUserId) === numId || (numEmpId && Number(modalUserId) === numEmpId))) {
         if (isDualScreen && screens.length >= 2) {
             drawDualScreen(modalCanvas, screens[0], screens[1]);
         } else {

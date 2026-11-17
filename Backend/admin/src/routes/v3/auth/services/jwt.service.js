@@ -3,8 +3,8 @@ const passwordService = require('./password.service');
 
 class JwtAuth {
   constructor() {
-    this.accessTokenSecret = process.env.JWT_ACCESS_TOKEN_SECRET;
-    this.tokenLife = process.env.JWT_EXPIRY;
+    this.accessTokenSecret = process.env.JWT_ACCESS_TOKEN_SECRET || 'empmonitor_jwt_secret';
+    this.tokenLife = process.env.JWT_EXPIRY || '7d';
   }
 
   /**

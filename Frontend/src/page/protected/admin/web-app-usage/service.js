@@ -10,7 +10,7 @@ import {
   drawFooter,
 } from "@/utils/pdfBrand";
 
-const TZ = "Asia/Kolkata";
+const TZ = "America/Bogota";
 
 // ── Shared helpers ──────────────────────────────────────────────────────────
 

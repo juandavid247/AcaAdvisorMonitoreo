@@ -4,7 +4,7 @@ const passwordService = require('./password.service');
 class JwtAuth {
     constructor() {
         this.accessTokenSecret = process.env.JWT_ACCESS_TOKEN_SECRET;
-        this.tokenLife = process.env.JWT_TOKEN_LIFE;
+        this.tokenLife = process.env.JWT_TOKEN_LIFE || '86400s';
     }
 
     /**

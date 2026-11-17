@@ -5,7 +5,7 @@ const mysql = require('../../database/MySqlConnection').getInstance();
 const  { TaskSchemaModel } = require("../../models/silah_db.schema");
 const moment = require('moment-timezone');
 
-const wssUrl = 'wss://realtime.empmonitor.com';
+const wssUrl = process.env.REALTIME_SOCKET_URL || 'ws://realtime:3003';
 let ws;
 let connected = false;
 let reconnectInterval = 5000; // 5 seconds

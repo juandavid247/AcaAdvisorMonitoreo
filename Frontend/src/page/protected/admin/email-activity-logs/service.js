@@ -5,7 +5,7 @@ import { exportToCsv, exportToPdf } from "@/services/dlp.service";
 // ─── Row Mapper ─────────────────────────────────────────────────────────────
 
 const mapRow = (log) => {
-    const tz = log.employee_details?.timezone || "Asia/Kolkata";
+    const tz = log.employee_details?.timezone || "America/Bogota";
     const startMoment = log.start_time ? moment.utc(log.start_time).tz(tz) : null;
     const endMoment = log.end_time ? moment.utc(log.end_time).tz(tz) : null;
     const timestampMoment = log.log_data?.timestamp ? moment.utc(log.log_data.timestamp).tz(tz) : null;

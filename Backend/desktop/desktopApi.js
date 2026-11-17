@@ -1,5 +1,7 @@
 'use strict';
-if (process.env.NODE_ENV === 'production') require('newrelic');
+if (process.env.ENABLE_NEWRELIC === 'true') {
+    try { require('newrelic'); } catch (e) { console.warn('NewRelic disabled or not found'); }
+}
 if (process.env.IS_DEBUGGING) console.log(`= server.js loaded => ${process.env.NODE_ENV} =`);
 
 

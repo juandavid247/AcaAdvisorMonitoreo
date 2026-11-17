@@ -24,7 +24,7 @@ const extractScreenshot = (description) => {
 };
 
 const mapRow = (log) => {
-    const tz = log.timezone || "Asia/Kolkata";
+    const tz = log.timezone || "America/Bogota";
     const startMoment = log.start ? moment.utc(log.start).tz(tz) : null;
 
     return {

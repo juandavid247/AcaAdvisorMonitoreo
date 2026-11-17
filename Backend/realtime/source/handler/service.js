@@ -10,7 +10,7 @@ let organizationRealTime = {};
 let cameraStreamRequests = {};
 
 
-const { publishToChannel, subscribeToChannel, getAsync, setAsync, delAsync } = require("../auth/redis");
+const { publishToChannel, subscribeToChannel, getAsync, setAsync, delAsync, keysAsync, getUserMetaData } = require("../auth/redis");
 
 subscribeToChannel("channel-auth", (message) => {
     message = JSON.parse(message);
@@ -30,11 +30,16 @@ subscribeToChannel("channel-image-stream", (message) => {
     message = JSON.parse(message);
     switch (message?.message) {
         case "channel-image-stream":
-            const requests = imageRequests[message.user_id] || [];
-            requests.forEach(agentId => {
+            const reqSet = new Set([
+                ...(imageRequests[message.user_id] || []),
+                ...(message.employee_id ? (imageRequests[message.employee_id] || []) : [])
+            ]);
+            reqSet.forEach(agentId => {
                 const agentWs = connectedAgents[agentId];
                 if (agentWs != "Dummy user" && agentWs && agentWs.readyState === WebSocket.OPEN) {
-                    if(agentWs.isScreenCast && !agentWs.isRealTimeCards && !agentWs.isWebCamStream) agentWs.send(JSON.stringify({...message.parsedMessage, user_id: message.user_id}));
+                    if(agentWs.isScreenCast && !agentWs.isRealTimeCards && !agentWs.isWebCamStream) {
+                        agentWs.send(JSON.stringify({...message.parsedMessage, user_id: message.user_id, employee_id: message.employee_id}));
+                    }
                 }
             });
             break;
@@ -172,20 +177,21 @@ subscribeToChannel("channel-update-realtime-activity", (message) => {
             organizationRealTime[message.organization_id].frontend.push(message.user_id);
             break;
         case "user_connected_to_dashboard_for_activity":
-            for (const agent_id of organizationRealTime[message.organization_id]['agents']) {
-                if(connectedAgents[agent_id] != "Dummy user") connectedAgents[agent_id].send("User connected to the dashboard, start sending the activity");
+            for (const agent_id of (organizationRealTime[message.organization_id]?.['agents'] || [])) {
+                if(connectedAgents[agent_id] && connectedAgents[agent_id] != "Dummy user" && connectedAgents[agent_id].readyState === WebSocket.OPEN) connectedAgents[agent_id].send("User connected to the dashboard, start sending the activity");
             }
             break;
         case "sending_agent_activity_to_users":
-            for (const user_id of organizationRealTime[message.organization_id]['frontend']) {
-                if(connectedAgents[user_id] != "Dummy user") 
+            for (const user_id of (organizationRealTime[message.organization_id]?.['frontend'] || [])) {
+                if(connectedAgents[user_id] && connectedAgents[user_id] != "Dummy user" && connectedAgents[user_id].readyState === WebSocket.OPEN) 
                 if(!connectedAgents[user_id].isScreenCast && !connectedAgents[user_id].isWebCamStream && connectedAgents[user_id].isRealTimeCards) connectedAgents[user_id].send(JSON.stringify(message.parsedMessage));
             }
             break;
         case "no_activity_found_send_current_activity":
-            for (const agent_id of organizationRealTime[message.organization_id]['agents']) {
-                if(connectedAgents[agent_id] != "Dummy user") connectedAgents[agent_id].send("No activity found, send the current activity");
+            for (const agent_id of (organizationRealTime[message.organization_id]?.['agents'] || [])) {
+                if(connectedAgents[agent_id] && connectedAgents[agent_id] != "Dummy user" && connectedAgents[agent_id].readyState === WebSocket.OPEN) connectedAgents[agent_id].send("No activity found, send the current activity");
             }
+            break;
         case "idle_agent_alert":
                 let passparsedMessage = (message.parsedMessage);
                 let senderAgentId = message.senderAgentId;
@@ -295,6 +301,53 @@ const handleImageRequest = async (ws, wss, parsedMessage) => {
 
 
     await publishToChannel("channel-update-image-request", JSON.stringify({ user_id: requestedUserId, message: "channel-update-image-request2", id: ws.user_id }));
+
+    // Send latest screenshot immediately if available (from Redis cache or shared volume)
+    try {
+        let cachedImg = await getAsync(`latest_screenshot:${requestedUserId}`);
+        if (!cachedImg) {
+            const userMeta = await getUserMetaData(requestedUserId);
+            const email = userMeta?.data?.email;
+            if (email) {
+                const fs = require('fs');
+                const path = require('path');
+                const baseDir = path.join('/app/shared_screenshots', email);
+                if (fs.existsSync(baseDir)) {
+                    const days = fs.readdirSync(baseDir).sort().reverse();
+                    for (const day of days) {
+                        const dayDir = path.join(baseDir, day);
+                        const files = fs.readdirSync(dayDir).filter(f => f.endsWith('.jpg') || f.endsWith('.jpeg') || f.endsWith('.png')).sort().reverse();
+                        if (files.length > 0) {
+                            const buf = fs.readFileSync(path.join(dayDir, files[0]));
+                            cachedImg = `data:image/jpeg;base64,${buf.toString('base64')}`;
+                            await setAsync(`latest_screenshot:${requestedUserId}`, cachedImg, 'EX', 86400);
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+
+        if (cachedImg) {
+            const streamPayload = {
+                type: 'start_image_stream',
+                user_id: requestedUserId,
+                image0: cachedImg,
+                screenData0: {
+                    aspectRatio0: 1.7777777777777777,
+                    width0: 1920,
+                    height0: 1080
+                }
+            };
+            if (ws.readyState === 1) { // WebSocket.OPEN
+                ws.send(JSON.stringify(streamPayload));
+            }
+            await publishToChannel("channel-image-stream", JSON.stringify({ user_id: requestedUserId, message: "channel-image-stream", parsedMessage: streamPayload }));
+        }
+    } catch (fetchErr) {
+        console.error('[REALTIME] Error delivering immediate screenshot:', fetchErr.message);
+    }
+
     return ws.send(`Image request received for user ${requestedUserId}`);
 };
 
@@ -328,14 +381,15 @@ const onCloseHandler = async (ws) => {
 };
 
 
-const checkAgentOnlineStatus = (ws, wss, parsedMessage) => {
+const checkAgentOnlineStatus = async (ws, wss, parsedMessage) => {
     if (!ws.user_id) return ws.close();
 
     const requestedUserId = parsedMessage.requested_user_id;
     if (!requestedUserId) return ws.send('Invalid requested_user_id');
 
     const agentWs = connectedAgents[requestedUserId];
-    if (agentWs) {
+    const redisActive = await getAsync(`${requestedUserId}_agent_request`);
+    if (agentWs || redisActive) {
         ws.send('Agent is online -- Agent Status');
     } else {
         ws.send('Agent is offline -- Agent Status');
@@ -384,11 +438,39 @@ const handleSystemStatusRecordSend = async (ws, wss, parsedMessage) => {
 
 /* Below Code is for Real time dashboard activity */
 
+const getActiveOnlineAgents = async (orgId) => {
+    const active = new Set(organizationRealTime[orgId]?.agents || []);
+    try {
+        if (typeof keysAsync === "function") {
+            const keys = await keysAsync("*_agent_request");
+            if (keys && keys.length) {
+                for (const key of keys) {
+                    const uid = key.replace("_agent_request", "");
+                    if (uid && !isNaN(uid)) {
+                        const meta = await getUserMetaData(uid);
+                        if (meta && meta.code === 200 && meta.data) {
+                            if (String(meta.data.organization_id) === String(orgId)) {
+                                active.add(Number(uid));
+                                if (meta.data.employee_id) active.add(Number(meta.data.employee_id));
+                                if (meta.data.user_id) active.add(Number(meta.data.user_id));
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    } catch (err) {
+        console.error("Error fetching active agents from Redis:", err.message);
+    }
+    return Array.from(active);
+};
+
 const handleUserConnected = async (ws, wss, parsedMessage) => {
     if (!ws.user_id) return ws.close();
     if (!ws.organization_id) return ws.close();
 
-    if (organizationRealTime[ws.organization_id]['agents'].length == 0) return ws.send('No agents connected to the system');
+    const agents = await getActiveOnlineAgents(ws.organization_id);
+    if (agents.length == 0) return ws.send('No agents connected to the system');
 
     await publishToChannel("channel-update-realtime-activity", JSON.stringify({ message: "user_connected_to_dashboard_for_activity", organization_id: ws.organization_id }));
 
@@ -396,17 +478,28 @@ const handleUserConnected = async (ws, wss, parsedMessage) => {
     ws.isRealTimeCards = true;
     ws.isWebCamStream = false;
 
-    ws.send(JSON.stringify({ type: "send_connected_agent_status", data: organizationRealTime[ws.organization_id]['agents'] }));
+    ws.send(JSON.stringify({ type: "send_connected_agent_status", data: agents }));
+
+    // Immediately deliver cached latest activity for each online agent
+    for (const agentId of agents) {
+        try {
+            const actStr = await getAsync(`latest_activity:${agentId}`);
+            if (actStr && ws.readyState === 1) {
+                ws.send(actStr);
+            }
+        } catch (actErr) {}
+    }
 };
 
 
-const handleRealTimeAgentConnectedStatus = (ws, wss, parsedMessage) => {
+const handleRealTimeAgentConnectedStatus = async (ws, wss, parsedMessage) => {
     if (!ws.user_id) return ws.close();
     if (!ws.organization_id) return ws.close();
 
-    if (organizationRealTime[ws.organization_id]['agents'].length == 0) return ws.send('No agents connected to the system');
+    const agents = await getActiveOnlineAgents(ws.organization_id);
+    if (agents.length == 0) return ws.send('No agents connected to the system');
 
-    ws.send(JSON.stringify({ type: "send_connected_agent_status", data: organizationRealTime[ws.organization_id]['agents'] }));
+    ws.send(JSON.stringify({ type: "send_connected_agent_status", data: agents }));
 };
 
 const handleRealTimeUsageHistoryStatus = async (ws, wss, parsedMessage) => {
@@ -419,9 +512,20 @@ const handleRealTimeUsageHistoryStatus = async (ws, wss, parsedMessage) => {
 };
 
 const handleRealTimeUsageHistoryStatusNoActivity = async (ws, wss, parsedMessage) => {
-    if (organizationRealTime[ws.organization_id] && organizationRealTime[ws.organization_id]['agents'].length == 0) return ws.send('No agents connected to the system');
+    const agents = await getActiveOnlineAgents(ws.organization_id);
+    if (agents.length == 0) return ws.send('No agents connected to the system');
     await publishToChannel("channel-update-realtime-activity", JSON.stringify({ message: "no_activity_found_send_current_activity", organization_id: ws.organization_id }));
-    ws.send(JSON.stringify({ type: "send_connected_agent_status", data: organizationRealTime[ws.organization_id]['agents'] }));
+    ws.send(JSON.stringify({ type: "send_connected_agent_status", data: agents }));
+
+    // Send latest activity for each agent
+    for (const agentId of agents) {
+        try {
+            const actStr = await getAsync(`latest_activity:${agentId}`);
+            if (actStr && ws.readyState === 1) {
+                ws.send(actStr);
+            }
+        } catch (actErr) {}
+    }
 }
 
 const handleCheckAdminConnectedStatus = (ws, wss, parsedMessage) => {

@@ -1,7 +1,7 @@
 import apiService from "@/services/api.service";
 import moment from "moment-timezone";
 
-const getDashboardStats = async (timezone = "Asia/Kolkata") => {
+const getDashboardStats = async (timezone = "America/Bogota") => {
     try {
 
         let { data } = await apiService.apiInstance.get(`/dashboard/employees?date=${moment().tz(timezone).format("YYYY-MM-DD")}`);
@@ -93,7 +93,7 @@ const pickEmployeesByType = (payload, type) => {
  * Fetch employees list for a specific dashboard stat type.
  * GET /dashboard/employees?type=<type>&date=<YYYY-MM-DD>
  */
-const getDashboardEmployeesByType = async ({ type, timezone = "Asia/Kolkata" } = {}) => {
+const getDashboardEmployeesByType = async ({ type, timezone = "America/Bogota" } = {}) => {
     try {
         const date = moment().tz(timezone).format("YYYY-MM-DD");
         const { data } = await apiService.apiInstance.get(`/dashboard/employees?date=${date}`);
@@ -110,7 +110,7 @@ const getDashboardEmployeesByType = async ({ type, timezone = "Asia/Kolkata" } =
     }
 };
 
-const getTodayActivitySnapShot = async (timezone = "Asia/Kolkata") => {
+const getTodayActivitySnapShot = async (timezone = "America/Bogota") => {
     try {
         // let { data } = await apiService.apiInstance.get(`/dashboard/activity-snapshot?date=${moment().tz(timezone).form
         let { data } = await apiService.apiInstance.get(`/dashboard/activity-breakdown?from_date=${moment().tz(timezone).format("YYYY-MM-DD")}&to_date=${moment().tz(timezone).format("YYYY-MM-DD")}`);
@@ -156,7 +156,7 @@ const formatWithPercent = (value, percent) => {
     return `${time} (${n.toFixed(2)}%)`;
 };
 
-const getActivityBreakdown = async (timezone = "Asia/Kolkata") => {
+const getActivityBreakdown = async (timezone = "America/Bogota") => {
     try {
         const now = moment().tz(timezone);
         // Match required range: last 3 days including today
@@ -232,7 +232,7 @@ const getActivityBreakdown = async (timezone = "Asia/Kolkata") => {
 /**
  * Build date range for "today" / "yesterday" / "thisweek"
  */
-const buildTopAppWebRange = (by = "today", timezone = "Asia/Kolkata") => {
+const buildTopAppWebRange = (by = "today", timezone = "America/Bogota") => {
     const now = moment().tz(timezone);
     let start = now.clone();
     let end = now.clone();
@@ -255,7 +255,7 @@ const buildTopAppWebRange = (by = "today", timezone = "Asia/Kolkata") => {
  * Helper to call `/dashboard/top-app-web` for a given type (1 = app, 2 = web)
  * and map the response into [{ name, value, color }].
  */
-const fetchTopAppWebForRange = async ({ type, by = "today", timezone = "Asia/Kolkata" }) => {
+const fetchTopAppWebForRange = async ({ type, by = "today", timezone = "America/Bogota" }) => {
     const { startDate, endDate } = buildTopAppWebRange(by, timezone);
 
     const { data } = await apiService.apiInstance.get(
@@ -287,7 +287,7 @@ const fetchTopAppWebForRange = async ({ type, by = "today", timezone = "Asia/Kol
 /**
  * Top Websites Usage (type = 2)
  */
-const getWebUsageChart = async (timezone = "Asia/Kolkata") => {
+const getWebUsageChart = async (timezone = "America/Bogota") => {
     try {
         const [today, yesterday, thisWeek] = await Promise.all([
             fetchTopAppWebForRange({ type: 2, by: "today", timezone }),
@@ -319,7 +319,7 @@ const getWebUsageChart = async (timezone = "Asia/Kolkata") => {
 /**
  * Top Applications Usage (type = 1)
  */
-const getAppUsageChart = async (timezone = "Asia/Kolkata") => {
+const getAppUsageChart = async (timezone = "America/Bogota") => {
     try {
         const [today, yesterday, thisWeek] = await Promise.all([
             fetchTopAppWebForRange({ type: 1, by: "today", timezone }),
@@ -431,7 +431,7 @@ const buildProductiveEmployeesUrl = ({
     by = "today",
     locationId = "all",
     departmentId = "all",
-    timezone = "Asia/Kolkata",
+    timezone = "America/Bogota",
     type = 1
 } = {}) => {
     const now = moment().tz(timezone);
@@ -508,7 +508,7 @@ const buildActiveEmployeesUrl = ({
     by = "today",
     locationId = "all",
     departmentId = "all",
-    timezone = "Asia/Kolkata",
+    timezone = "America/Bogota",
     limit = 10,
     skip = 0,
     sortOrder = "D"
@@ -587,7 +587,7 @@ const getRandomNonActiveUsers = async (params = {}) => {
 /**
  * Location performance: GET /dashboard/performance?category=location&type=pro|non|neu&start_date&end_date
  */
-const buildPerformanceDateRange = (by = "today", timezone = "Asia/Kolkata") => {
+const buildPerformanceDateRange = (by = "today", timezone = "America/Bogota") => {
     const now = moment().tz(timezone);
     let start = now.clone();
     let end = now.clone();
@@ -612,7 +612,7 @@ const getLocationPerformance = async ({
     by = "today",
     type = "neu",
     category = "location",
-    timezone = "Asia/Kolkata"
+    timezone = "America/Bogota"
 } = {}) => {
     try {
         const { startDate, endDate } = buildPerformanceDateRange(by, timezone);
@@ -655,7 +655,7 @@ const getDepartmentPerformance = async ({
     by = "today",
     type = "pro",
     category = "department",
-    timezone = "Asia/Kolkata"
+    timezone = "America/Bogota"
 } = {}) => {
     try {
         const { startDate, endDate } = buildPerformanceDateRange(by, timezone);
@@ -701,7 +701,7 @@ const getDepartmentPerformance = async ({
 const getWebAppActivityForEmployees = async ({
     employeeIds = [],
     by = "today",
-    timezone = "Asia/Kolkata",
+    timezone = "America/Bogota",
 } = {}) => {
     try {
         const { startDate, endDate } = buildTopAppWebRange(by, timezone);

@@ -1,19 +1,17 @@
 import { jsPDF } from "jspdf";
 import logoUrl from "@/assets/emp.png";
 
-// Shared EmpMonitor brand palette for all report PDFs.
-// Primary mirrors the live dashboard's blue-500 (Tailwind) — the same
-// hue used on Top Bar accents, primary buttons, stat badges and the
-// "View Report" links. Anything darker than this drifts away from the
-// dashboard's actual on-screen tone.
+// Shared ACA ADVISOR S.A.S. brand palette for all report PDFs.
 export const PDF_BRAND = {
-  primary: [59, 130, 246],    // #3B82F6 — blue-500 (matches dashboard)
-  primarySoft: [219, 234, 254], // #DBEAFE — blue-100 (chips / soft fills)
-  text: [15, 23, 42],         // slate-900
-  muted: [100, 116, 139],     // slate-500
-  subtle: [148, 163, 184],    // slate-400
-  hairline: [226, 232, 240],  // slate-200
-  band: [248, 250, 252],      // slate-50 (lighter, less heavy than slate-100)
+  primary: [15, 124, 185],      // #0F7CB9 — ACA Title Blue
+  primarySoft: [224, 242, 254], // #E0F2FE — soft fill
+  text: [15, 23, 42],           // slate-900
+  muted: [100, 116, 139],       // slate-500
+  subtle: [148, 163, 184],      // slate-400
+  hairline: [226, 232, 240],    // slate-200
+  band: [248, 250, 252],        // slate-50
+  green: [58, 159, 107],        // #3A9F6B — ACA Green
+  cyan: [48, 169, 227],         // #30A9E3 — ACA Cyan Blue
 };
 
 // Rasterize the EmpMonitor logo asset to a PNG data URL via an off-DOM
@@ -231,7 +229,7 @@ export const drawFooter = (doc, { margin, pageWidth }) => {
     doc.setFontSize(8);
     doc.setTextColor(...PDF_BRAND.subtle);
     doc.text(
-      "EmpMonitor • Your Workforce Productivity Compass",
+      "ACA ADVISOR S.A.S. • Gestión y Monitoreo Corporativo",
       margin,
       ph - 12
     );

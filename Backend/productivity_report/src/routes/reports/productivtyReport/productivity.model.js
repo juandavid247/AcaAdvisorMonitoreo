@@ -63,11 +63,22 @@ class ProductivityModel {
     * @param {*} object
     * @returns {Array} -  succeess or error.
     */
+    static getDefaultProductivityStatus(name, fallbackCategory = 0) {
+        if (Number(fallbackCategory) === 1 || Number(fallbackCategory) === 2) return Number(fallbackCategory);
+        if (!name || typeof name !== 'string') return 1;
+        const lower = name.toLowerCase();
+        const nonProductive = ['youtube', 'netflix', 'tiktok', 'facebook', 'instagram', 'twitch', 'steam', 'epicgames', 'spotify'];
+        if (nonProductive.some(k => lower.includes(k))) return 2;
+        return 1; // Default corporate applications/domains to Productive (1) unless classified otherwise
+    }
+
     static async upsertAppWeb(appData, organization_id, productivityCategory, customizeProductivityCategory) {
         try {
             let { app, url } = appData;
             app = app ? app.toLowerCase().replace('.exe', '') : app;
             url = url ? url.toLowerCase() : url;
+            const defaultAppStatus = ProductivityModel.getDefaultProductivityStatus(app, productivityCategory);
+            const defaultUrlStatus = ProductivityModel.getDefaultProductivityStatus(url, productivityCategory);
             const resData = { application_id: null, domain_id: null };
             resData['application_id'] = await OrgAppWeb.findOne({ name: app, type: 1, organization_id }).select('_id').lean();
 
@@ -80,7 +91,7 @@ class ProductivityModel {
                     await new OrgDeptAppWebModel({
                         application_id: doc._id,
                         type: 1, // 1-Global, 2-Custom
-                        status: productivityCategory,  // 0-Neutral, 1-productive, 2-non productive
+                        status: defaultAppStatus,  // 0-Neutral, 1-productive, 2-non productive
                     }).save()
                 }
 
@@ -103,7 +114,7 @@ class ProductivityModel {
                             await new OrgDeptAppWebModel({
                                 application_id: doc._id,
                                 type: 1, // 1-Global, 2-Custom
-                                status: productivityCategory,  // 0-Neutral, 1-productive, 2-non productive
+                                status: defaultUrlStatus,  // 0-Neutral, 1-productive, 2-non productive
                             }).save()
                         }
 
@@ -128,7 +139,7 @@ class ProductivityModel {
                             await new OrgDeptAppWebModel({
                                 application_id: doc._id,
                                 type: 1, // 1-Global, 2-Custom
-                                status: productivityCategory,  // 0-Neutral, 1-productive, 2-non productive
+                                status: defaultUrlStatus,  // 0-Neutral, 1-productive, 2-non productive
                             }).save()
                         }
 
@@ -145,8 +156,8 @@ class ProductivityModel {
             }
 
             return Promise.resolve({
-                application_id: resData.application_id._id,
-                domain_id: resData.domain_id ? resData.domain_id._id : null
+                application_id: resData.application_id._id || resData.application_id,
+                domain_id: resData.domain_id ? (resData.domain_id._id || resData.domain_id) : null
             });
         } catch (err) {
             return Promise.reject(err);
@@ -166,14 +177,15 @@ class ProductivityModel {
         let orgDeptAppWeb = await OrgDeptAppWebModel.findOne({ application_id, department_id: null }).lean();
 
         if (!orgDeptAppWeb) {
-            orgDeptAppWeb = await new OrgDeptAppWebModel({ application_id, type: 1, status: 0, }).save((err, data) => { });
+            const created = await new OrgDeptAppWebModel({ application_id, type: 1, status: 1 }).save();
+            orgDeptAppWeb = created.toObject();
         }
         if (orgDeptAppWeb && orgDeptAppWeb.type === 1) {
             return Promise.resolve(orgDeptAppWeb);
         } else {
             orgDeptAppWeb = await OrgDeptAppWebModel.findOne({ application_id, department_id });
             if (!orgDeptAppWeb) {
-                return Promise.resolve({ status: 0, pre_request: 0 });
+                return Promise.resolve({ status: 1, pre_request: 0 });
             }
             return Promise.resolve(orgDeptAppWeb);
         }
@@ -192,15 +204,23 @@ class ProductivityModel {
             const oldReport = await EmpProductivityReportModel.findOne({ employee_id: prReport.employee_id, yyyymmdd: prReport.yyyymmdd });
 
             if (!oldReport) {
+                prReport.logged_duration = Math.max(
+                    prReport.logged_duration || 0,
+                    (prReport.productive_duration || 0) + (prReport.non_productive_duration || 0) + (prReport.neutral_duration || 0) + (prReport.idle_duration || 0)
+                );
                 await new EmpProductivityReportModel(prReport).save();
             } else {
-                oldReport.logged_duration = prReport.logged_duration;
                 oldReport.productive_duration += prReport.productive_duration;
                 oldReport.non_productive_duration += prReport.non_productive_duration;
                 oldReport.neutral_duration += prReport.neutral_duration;
 
                 oldReport.idle_duration += prReport.idle_duration;
                 oldReport.break_duration += prReport.break_duration;
+                oldReport.logged_duration = Math.max(
+                    oldReport.logged_duration || 0,
+                    prReport.logged_duration || 0,
+                    oldReport.productive_duration + oldReport.non_productive_duration + oldReport.neutral_duration + oldReport.idle_duration
+                );
 
                 // Tasks
                 const oldtaskIndex = oldReport.tasks.findIndex(task => prReport.tasks[0].task_id === task.task_id);

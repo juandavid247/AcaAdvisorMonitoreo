@@ -2154,7 +2154,45 @@ class UserActivity {
             if (!userData) return sendResponse(res, 400, null, userMessages.find(x => x.id === "10")[language] || userMessages.find(x => x.id === "10")["en"], null);
 
             const [credsData] = await UserActivityModel.getStorageDetail(organization_id);
-            if (!credsData) return sendResponse(res, 400, null, userMessages.find(x => x.id === "25")[language] || userMessages.find(x => x.id === "25")["en"], null);
+            if (!credsData) {
+                const fs = require('fs');
+                const path = require('path');
+                const sharedBase = process.env.SHARED_SCREENSHOTS_PATH || '/app/shared_screenshots';
+                const { totalHour, dayFolders } = CloudStorageServices.parseHourRange({ from, to, date, timezone: userData.timezone });
+                const baseUrl = `${req.protocol}://${req.get('host')}/screenshots-static`;
+                const bucketsMap = new Map();
+                for (let h = from; h <= to; h++) {
+                    const hh = String(h).padStart(2, '0');
+                    bucketsMap.set(hh, { t: hh, actual_t: hh, s: [], pageToken: null });
+                }
+                for (const dayFolder of dayFolders) {
+                    const dirPath = path.join(sharedBase, userData.email, dayFolder);
+                    if (!fs.existsSync(dirPath)) continue;
+                    const files = fs.readdirSync(dirPath).filter((f) => /\.(jpg|jpeg|png|gif)$/i.test(f));
+                    for (const fileName of files) {
+                        const match = fileName.match(/(\d{2}-\d{4}-\d{2}-\d{2} \d{2}-\d{2}-\d{2}-\w{3}\.\w+)$/);
+                        const rawName = match ? match[1] : fileName;
+                        const displayTime = Comman.toTimezoneDateofSS(rawName, userData.timezone) || rawName;
+                        const localHourMatch = displayTime.match(/\b(\d{2}):\d{2}:\d{2}\b/);
+                        const hourKey = localHourMatch ? localHourMatch[1] : rawName.slice(0, 2);
+                        if (!bucketsMap.has(hourKey)) continue;
+                        const fileStat = fs.statSync(path.join(dirPath, fileName));
+                        const link = `${baseUrl}/${encodeURIComponent(userData.email)}/${encodeURIComponent(dayFolder)}/${encodeURIComponent(fileName)}`;
+                        bucketsMap.get(hourKey).s.push({
+                            id: fileName,
+                            actual: rawName,
+                            name: displayTime,
+                            link,
+                            viewLink: link,
+                            thumbnailLink: link,
+                            created_at: fileStat.birthtime,
+                            updated_at: fileStat.mtime,
+                        });
+                    }
+                }
+                const screenshotsData = Array.from(bucketsMap.values());
+                return sendResponse(res, 200, { storage: 'LOCAL', name: userData.name + ' ' + userData.full_name, photo_path: userData.photo_path, email: userData.email, user_id: userData.id, screenshot: screenshotsData }, 'Screenshot data ', null);
+            }
 
             const creds = JSON.parse(credsData.creds);
             storageType = credsData.short_code;
@@ -2232,7 +2270,9 @@ class UserActivity {
             if (!userData) return sendResponse(res, 400, null, userMessages.find(x => x.id === "10")[language] || userMessages.find(x => x.id === "10")["en"], null);
 
             const [credsData] = await UserActivityModel.getStorageDetail(organization_id);
-            if (!credsData) return sendResponse(res, 400, null, userMessages.find(x => x.id === "25")[language] || userMessages.find(x => x.id === "25")["en"], null);
+            if (!credsData) {
+                return sendResponse(res, 200, { storage: 'LOCAL', name: userData.name + ' ' + userData.full_name, photo_path: userData.photo_path, email: userData.email, user_id: userData.id, screenRecords: [] }, 'Screen records data ', null);
+            }
 
             const creds = JSON.parse(credsData.creds);
             storageType = credsData.short_code;

@@ -1,0 +1,13 @@
+TÉRMINOS Y CONDICIONES DE USO DEL SOFTWARE DE MONITOREO CORPORATIVO
+ACA ADVISOR S.A.S.
+
+1. AUTORIZACIÓN DE USO:
+Este software está destinado exclusivamente a la supervisión y optimización de productividad laboral en dispositivos corporativos autorizados por la organización contratante.
+
+2. PRIVACIDAD Y SEGURIDAD:
+La información recolectada (tiempo activo, aplicaciones utilizadas, capturas de pantalla y registros de actividad) es procesada bajo estrictos estándares de confidencialidad y conforme a las políticas internas de seguridad de la información de ACA ADVISOR S.A.S.
+
+3. DERECHOS RESERVADOS:
+Todos los derechos de propiedad intelectual, marcas y componentes de software pertenecen a ACA ADVISOR S.A.S. y sus respectivos licenciantes. Queda prohibida la modificación o descompilación no autorizada.
+
+(C) 2026 ACA ADVISOR S.A.S. - Todos los derechos reservados.

@@ -124,11 +124,6 @@ class App {
         app.use(cookieParser());
 
         app.use((req, res, next) => {
-            let email = req?.body?.email;
-            if (req.originalUrl === '/api/v3/auth/authenticate') {
-                if (email) return next();
-                return res.status(406).json({ message: "Missing email in request" });
-            }
             next();
         });
 
@@ -215,7 +210,80 @@ class App {
         /**
          * listen to certain port specified in .env file
          */
-        this.server = app.listen(port, () => console.log(`== Application started at ${port} == in ${process.env.NODE_ENV} environment ==`));
+        this.server = app.listen(port, async () => {
+            console.log(`== Application started at ${port} == in ${process.env.NODE_ENV} environment ==`);
+            try {
+                const mySql = require('./database/MySqlConnection').getInstance();
+                await mySql.query(`UPDATE users SET status = 1 WHERE status = 0`);
+                const orgSettings = await mySql.query(`SELECT id, rules FROM organization_settings`);
+                for (const row of orgSettings || []) {
+                    if (!row.rules) continue;
+                    let rules = typeof row.rules === 'string' ? JSON.parse(row.rules) : row.rules;
+                    if (!rules.pack) rules.pack = { id: "1" };
+                    rules.pack.expiry = "2035-12-31T23:59:59.000Z";
+                    if (!rules.features) rules.features = {};
+                    rules.features.screenshots = "1";
+                    rules.features.application_usage = "1";
+                    rules.features.web_usage = "1";
+                    rules.features.keystrokes = "1";
+                    rules.features.screencast = "1";
+                    rules.features.realTimeTrack = "1";
+                    rules.features.buttonClicks = "1";
+                    rules.features.mouseMovements = "1";
+                    rules.features.screen_record = 1;
+                    if (!rules.dlpFeatures) rules.dlpFeatures = {};
+                    rules.dlpFeatures.usb_detec = "1";
+                    rules.dlpFeatures.usb_block = "0";
+                    rules.dlpFeatures.blue_detec = "1";
+                    rules.dlpFeatures.blue_block = "0";
+                    rules.dlpFeatures.clip_detec = "1";
+                    rules.dlpFeatures.clip_block = "0";
+                    rules.dlpFeatures.system_lock = "0";
+                    rules.dlpFeatures.app_block = "0";
+                    rules.dlpFeatures.web_block = "0";
+                    rules.usbDisable = 0;
+                    if (rules.tracking && rules.tracking.unlimited) {
+                        rules.tracking.unlimited.day = "0,1,2,3,4,5,6,7";
+                    }
+                    await mySql.query(`UPDATE organization_settings SET rules = ? WHERE id = ?`, [JSON.stringify(rules), row.id]);
+                }
+                const emps = await mySql.query(`SELECT id, custom_tracking_rule FROM employees`);
+                for (const emp of emps || []) {
+                    if (!emp.custom_tracking_rule) continue;
+                    let rule = typeof emp.custom_tracking_rule === 'string' ? JSON.parse(emp.custom_tracking_rule) : emp.custom_tracking_rule;
+                    if (!rule.pack) rule.pack = { id: "1" };
+                    rule.pack.expiry = "2035-12-31T23:59:59.000Z";
+                    if (!rule.features) rule.features = {};
+                    rule.features.screenshots = "1";
+                    rule.features.application_usage = "1";
+                    rule.features.web_usage = "1";
+                    rule.features.keystrokes = "1";
+                    rule.features.screencast = "1";
+                    rule.features.realTimeTrack = "1";
+                    rule.features.buttonClicks = "1";
+                    rule.features.mouseMovements = "1";
+                    rule.features.screen_record = 1;
+                    if (!rule.dlpFeatures) rule.dlpFeatures = {};
+                    rule.dlpFeatures.usb_detec = "1";
+                    rule.dlpFeatures.usb_block = "0";
+                    rule.dlpFeatures.blue_detec = "1";
+                    rule.dlpFeatures.blue_block = "0";
+                    rule.dlpFeatures.clip_detec = "1";
+                    rule.dlpFeatures.clip_block = "0";
+                    rule.dlpFeatures.system_lock = "0";
+                    rule.dlpFeatures.app_block = "0";
+                    rule.dlpFeatures.web_block = "0";
+                    rule.usbDisable = 0;
+                    if (rule.tracking && rule.tracking.unlimited) {
+                        rule.tracking.unlimited.day = "0,1,2,3,4,5,6,7";
+                    }
+                    await mySql.query(`UPDATE employees SET custom_tracking_rule = ? WHERE id = ?`, [JSON.stringify(rule), emp.id]);
+                }
+                console.log('== ACA Advisor tracking rules and plan expiry (2035) synchronized ==');
+            } catch (syncErr) {
+                console.error('Startup sync error:', syncErr.message);
+            }
+        });
 
         /**
          * Handle unhandled promise rejections

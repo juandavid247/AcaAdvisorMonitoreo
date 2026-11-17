@@ -93,11 +93,24 @@ export class DataLogEventHandler extends EventEmitter {
     }
 
     async updateAttendance(dataObjectToUpdate: any, endDate: any, details: String) {
-        await dataObjectToUpdate.update({ end_time: endDate.format('YYYY-MM-DD HH:mm:ss'), details });
+        const formattedEnd = endDate.format('YYYY-MM-DD HH:mm:ss');
+        await dataObjectToUpdate.update({ end_time: formattedEnd, details });
+        await this.empAttendanceModel.syncTimesheet(
+            dataObjectToUpdate.id,
+            dataObjectToUpdate.employee_id,
+            moment(dataObjectToUpdate.start_time).format('YYYY-MM-DD HH:mm:ss'),
+            formattedEnd
+        );
     }
 
     async updateAttendanceISO(dataObjectToUpdate: any, endDate: any, details: String) {
         await dataObjectToUpdate.update({ end_time: endDate, details });
+        await this.empAttendanceModel.syncTimesheet(
+            dataObjectToUpdate.id,
+            dataObjectToUpdate.employee_id,
+            moment(dataObjectToUpdate.start_time).format('YYYY-MM-DD HH:mm:ss'),
+            moment(endDate).format('YYYY-MM-DD HH:mm:ss')
+        );
     }
 
     async getMaxLogoutTime(sysTimeUtc: any, userData: IDecodedToken, previousLoginTime: any, previousLogoutTime: any, startDate: any, date: any) {
@@ -180,10 +193,12 @@ export class DataLogEventHandler extends EventEmitter {
                         'seconds'
                     );
 
-                    // Get perticular date's attendance of a user
+                    const userTz = userData.timezone || 'America/Bogota';
+                    (userData as any).timezone = userTz;
+                    // Get perticular date's attendance of a user in local timezone
                     const previousAttendanceRawData = await this.empAttendanceModel.getLastInsertedAttendanceLastInserted(
                         item.userId,
-                        startDate.format('YYYY-MM-DD')
+                        startDate.clone().tz(userTz).format('YYYY-MM-DD')
                     );
 
                     if(configFile.AUTO_SHIFT_FEATURES.includes(item.adminId)) {
@@ -320,11 +335,14 @@ export class DataLogEventHandler extends EventEmitter {
                         item.attendanceDate = startDate.tz(userData.timezone).format('YYYY-MM-DD');
                         if(configFile.EXTERNAL_CLOCKINOUT_CALL.includes(userData.organization_id)) this.emitter.emit('clock-in-clock-out-update-api-request', "insert", startDate.tz(userData.timezone).format('YYYY-MM-DD'), startTime.toISOString(), endDate.toISOString(), userData);
                     }
+                    if (item.attendanceDate) {
+                        await this.redisService.getClient().del(`${item.userId}_${item.attendanceDate}_attendance`);
+                    }
                 } catch (err) {
                     console.log('--err--', err.message);
                 }
             }
-            await this.updateActivityAndUsage(data, userData.timezone, userData);
+            await this.updateActivityAndUsage(data, userData.timezone || 'America/Bogota', userData);
         } catch (err) {
             return console.log('--err--', err.message);
         }

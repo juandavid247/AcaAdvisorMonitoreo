@@ -3,8 +3,14 @@ const Service = require('./service');
 
 const onMessageHandler = async (ws, wss, message) => {
     try {
-        const parsedMessage = JSON.parse(message.toString().split("\n")[0]);
-        if (!parsedMessage.type) return ws.close();
+        const rawStr = message.toString();
+        console.log(`[WS-MSG] Raw incoming (${rawStr.length} bytes): ${rawStr.substring(0, 150)}`);
+        const parsedMessage = JSON.parse(rawStr.split("\n")[0]);
+        console.log(`[WS-MSG] Parsed type: "${parsedMessage.type}", user: ${ws.user_id || 'anonymous'}`);
+        if (!parsedMessage.type) {
+            console.log(`[WS-MSG] No type in message, closing socket`);
+            return ws.close();
+        }
 
         switch (parsedMessage.type) {
             case 'agent_auth':

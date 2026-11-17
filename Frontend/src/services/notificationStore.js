@@ -44,7 +44,7 @@ export const useNotificationStore = create((set, get) => ({
         const { socket } = get();
         if (socket && socket.readyState <= 1) return;
 
-        const wsUrl = apiService.SOCKET_BASE_URL;
+        const wsUrl = apiService.NOTIFICATION_SOCKET_URL || apiService.SOCKET_BASE_URL;
         const token = localStorage.getItem("token");
         if (!wsUrl || !token) return;
 

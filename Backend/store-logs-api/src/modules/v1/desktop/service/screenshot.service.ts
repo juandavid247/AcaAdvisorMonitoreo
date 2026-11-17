@@ -277,16 +277,82 @@ export class ScreenshotService {
                 else {
                     dbStorageData = await this.integrationModel.findOne(userData.organization_id);
                     if (dbStorageData?.organizationproviders?.orgProCreds?.is_expired === 1) return this.endRequest(400, 'Storage access failed, please check your credentials.', files);
-                    await this.redisService.getClient().set(`${userData.organization_id}_storage_creds`, JSON.stringify(dbStorageData), 'EX', 28800);
+                    if (dbStorageData) {
+                        await this.redisService.getClient().set(`${userData.organization_id}_storage_creds`, JSON.stringify(dbStorageData), 'EX', 28800);
+                    }
                 }
-                storage = JSON.parse(dbStorageData.organizationproviders.orgProCreds.creds);
-                // ({ dbStorageData, storage } = testZHCredentials);
+                if (dbStorageData?.organizationproviders?.orgProCreds?.creds) {
+                    storage = JSON.parse(dbStorageData.organizationproviders.orgProCreds.creds);
+                }
             } catch (error) {
-                return this.endRequest(400, 'Failed to retrieve cloud integration data', files, error);
+                dbStorageData = null;
             }
     
+            // Local storage fallback when no external cloud provider is configured in DB
             if (!dbStorageData?.short_code) {
-                return this.endRequest(400, 'The cloud provider name is not setup in DB', files);
+                try {
+                    const fs = require('fs').promises;
+                    const path = require('path');
+                    const sharedBase = process.env.SHARED_SCREENSHOTS_PATH || '/app/shared_screenshots';
+                    const { projectId = 0, taskId = 0 } = data || ({} as any);
+                    for (const file of files) {
+                        const day: string = file.originalname.substr(3, 10);
+                        const targetDir = path.join(sharedBase, userData.email, day);
+                        await fs.mkdir(targetDir, { recursive: true });
+                        file.filename = `${projectId}-${taskId}-${file.originalname}`;
+                        const destPath = path.join(targetDir, file.filename);
+
+                        // Ensure buffer is loaded regardless of Multer storage type (disk vs memory)
+                        let fileBuffer = file.buffer;
+                        if (!fileBuffer && (file as any).path) {
+                            fileBuffer = await fs.readFile((file as any).path);
+                        }
+
+                        if (fileBuffer) {
+                            await fs.writeFile(destPath, fileBuffer);
+                        }
+
+                        // Broadcast to Realtime WebSocket and cache latest screenshot in Redis
+                        try {
+                            if (fileBuffer) {
+                                const b64 = fileBuffer.toString('base64');
+                                const dataUri = `data:image/jpeg;base64,${b64}`;
+                                const userId = (userData as any).user_id || userData.id || userData.employee_id;
+                                const empId = userData.employee_id || userId;
+                                const redisClient = this.redisService.getClient();
+                                await redisClient.set(`latest_screenshot:${userId}`, dataUri, 'EX', 86400);
+                                if (String(empId) !== String(userId)) {
+                                    await redisClient.set(`latest_screenshot:${empId}`, dataUri, 'EX', 86400);
+                                }
+                                await redisClient.publish('channel-image-stream', JSON.stringify({
+                                    user_id: userId,
+                                    employee_id: empId,
+                                    message: 'channel-image-stream',
+                                    parsedMessage: {
+                                        type: 'start_image_stream',
+                                        user_id: userId,
+                                        employee_id: empId,
+                                        image0: dataUri,
+                                        screenData0: {
+                                            aspectRatio0: 1.7777777777777777,
+                                            width0: 1920,
+                                            height0: 1080
+                                        }
+                                    }
+                                }));
+                            }
+                        } catch (broadErr) {
+                            console.error('[SCREENSHOT] Error broadcasting stream:', broadErr.message);
+                        }
+
+                        file.filepath = '';
+                        file.uploaded = true;
+                        delete file.buffer;
+                    }
+                    return this.endRequest(200, 'Successfully screenshot uploaded', files);
+                } catch (localErr) {
+                    return this.endRequest(500, 'Failed to save screenshots locally', files, localErr);
+                }
             }
     
             // checking if provider is supported

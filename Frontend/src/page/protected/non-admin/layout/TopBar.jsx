@@ -14,6 +14,7 @@ import useAdminSession     from "../../../../sessions/adminSession";
 import useEmployeeSession  from "../../../../sessions/employeeSession";
 import { switchRole }      from "../../../auth/employee-login/service";
 import BackToCloud from "@/components/BackToCloud";
+import ThemeToggle from "@/components/common/ThemeToggle";
 
 export default function NonAdminTopBar() {
   const { t }                                      = useTranslation();
@@ -67,21 +68,22 @@ export default function NonAdminTopBar() {
   };
 
   return (
-    <div className="flex items-center justify-between border-b sticky top-0 z-50 border-slate-200/60 bg-white px-5 py-3 w-full">
+    <div className="flex items-center justify-between border-b sticky top-0 z-50 border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 px-5 py-3 w-full transition-colors duration-200 shadow-xs">
       <div className="flex items-center gap-2">
         {(!open || window.innerWidth <= 768) && (
-          <div className="trigger_button mr-3 flex h-7 w-7 items-center justify-center rounded-md bg-slate-200/70">
+          <div className="trigger_button mr-3 flex h-7 w-7 items-center justify-center rounded-md bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300">
             <SidebarTrigger />
           </div>
         )}
         <div className="md:flex flex-col hidden">
-          <span className="text-xs text-[#707EAE] font-bold">{t("topbar_hi")} {displayName.split(" ")[0]},</span>
-          <h2 className="text-lg font-bold text-[#2B3674]">{t("topbar_welcome")}</h2>
+          <span className="text-xs text-[#0F7CB9] dark:text-[#38BDF8] font-bold tracking-wide">{t("topbar_hi")} {displayName.split(" ")[0]},</span>
+          <h2 className="text-lg font-bold text-[#0F7CB9] dark:text-white">{t("topbar_welcome")}</h2>
         </div>
       </div>
 
       <div className="flex items-center gap-3">
         <BackToCloud />
+        <ThemeToggle />
         {switchError && (
           <span className="hidden sm:flex items-center gap-1 text-[11px] text-red-500 bg-red-50 border border-red-100 rounded-full px-2.5 py-1">
             <AlertCircle size={11} /> {switchError}
@@ -91,24 +93,24 @@ export default function NonAdminTopBar() {
         {canSwitchRole && (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <button className="flex items-center gap-1.5 rounded-full border border-blue-200 bg-blue-50 px-4 py-1.5 text-sm font-medium text-blue-600 shadow-sm hover:bg-blue-100 transition-colors outline-none">
+              <button className="flex items-center gap-1.5 rounded-full border border-blue-200 bg-blue-50 dark:bg-slate-800 dark:border-slate-700 dark:text-sky-400 px-4 py-1.5 text-sm font-medium text-blue-600 shadow-sm hover:bg-blue-100 dark:hover:bg-slate-700 transition-colors outline-none">
                 <RefreshCw size={13} />
                 <span className="hidden lg:inline">{t("topbar_switch_role")}</span>
                 <ChevronDown size={12} />
               </button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-52 rounded-2xl shadow-2xl border-slate-100 mt-2 p-2">
+            <DropdownMenuContent align="end" className="w-52 rounded-2xl shadow-2xl border-slate-100 dark:border-slate-800 dark:bg-slate-900 mt-2 p-2">
               <DropdownMenuLabel className="text-[11px] text-gray-400 font-medium px-3 py-1.5">{t("topbar_switch_to")}</DropdownMenuLabel>
-              <DropdownMenuSeparator className="bg-slate-100 my-1" />
+              <DropdownMenuSeparator className="bg-slate-100 dark:bg-slate-800 my-1" />
               {otherRoles.map((role) => {
                 const isSwitching = switchingRoleId === role.role_id;
                 return (
-                  <DropdownMenuItem key={role.role_id} disabled={!!switchingRoleId} onClick={() => handleRoleSwitch(role)} className="py-2.5 px-3 rounded-xl cursor-pointer hover:bg-slate-50 transition-colors">
+                  <DropdownMenuItem key={role.role_id} disabled={!!switchingRoleId} onClick={() => handleRoleSwitch(role)} className="py-2.5 px-3 rounded-xl cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">
                     <div className="flex items-center gap-3 w-full">
-                      <div className="p-1.5 rounded-lg bg-blue-50 text-[#0066FF]">
+                      <div className="p-1.5 rounded-lg bg-blue-50 dark:bg-slate-800 text-[#0066FF] dark:text-sky-400">
                         {isSwitching ? <Loader2 size={14} className="animate-spin" /> : <User size={14} />}
                       </div>
-                      <span className="text-sm font-semibold text-[#2B3674]">{role.name}</span>
+                      <span className="text-sm font-semibold text-[#0F7CB9] dark:text-slate-200">{role.name}</span>
                     </div>
                   </DropdownMenuItem>
                 );
@@ -117,7 +119,7 @@ export default function NonAdminTopBar() {
           </DropdownMenu>
         )}
 
-        <button className="flex items-center gap-1 text-sm text-gray-600 hover:text-gray-900 transition-colors">
+        <button className="flex items-center gap-1 text-sm text-slate-600 hover:text-[#0F7CB9] dark:text-slate-400 dark:hover:text-white transition-colors">
           <HelpCircle className="h-4 w-4" />
           <span className="hidden lg:inline">{t("topbar_help")}</span>
         </button>
@@ -126,22 +128,22 @@ export default function NonAdminTopBar() {
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Avatar className="h-9 w-9 cursor-pointer ring-2 ring-blue-100 transition-all hover:ring-blue-200">
-              <AvatarFallback className="bg-gradient-to-br from-blue-500 to-blue-700 text-white font-bold text-sm">{initials}</AvatarFallback>
+            <Avatar className="h-9 w-9 cursor-pointer ring-2 ring-blue-100 dark:ring-slate-700 transition-all hover:ring-blue-200">
+              <AvatarFallback className="bg-gradient-to-br from-[#30A9E3] to-[#0F7CB9] text-white font-bold text-sm">{initials}</AvatarFallback>
             </Avatar>
           </DropdownMenuTrigger>
-          <DropdownMenuContent className="w-64 p-2 rounded-2xl shadow-2xl border-slate-100 mt-2" align="end">
+          <DropdownMenuContent className="w-64 p-2 rounded-2xl shadow-2xl border-slate-100 dark:border-slate-800 dark:bg-slate-900 mt-2" align="end">
             <div className="flex items-center gap-3 px-3 py-4">
-              <Avatar className="h-10 w-10 ring-2 ring-blue-50">
-                <AvatarFallback className="bg-gradient-to-br from-blue-500 to-blue-700 text-white font-bold">{initials}</AvatarFallback>
+              <Avatar className="h-10 w-10 ring-2 ring-blue-50 dark:ring-slate-700">
+                <AvatarFallback className="bg-gradient-to-br from-[#30A9E3] to-[#0F7CB9] text-white font-bold">{initials}</AvatarFallback>
               </Avatar>
               <div className="flex flex-col overflow-hidden">
-                <span className="font-bold text-[#2B3674] truncate text-base">{displayName}</span>
-                <span className="text-xs text-[#7B8EB1] font-medium">{currentRole}</span>
-                {displayEmail && <span className="text-[11px] text-[#A3AED0] truncate">{displayEmail}</span>}
+                <span className="font-bold text-[#0F7CB9] dark:text-white truncate text-base">{displayName}</span>
+                <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">{currentRole}</span>
+                {displayEmail && <span className="text-[11px] text-slate-400 truncate">{displayEmail}</span>}
               </div>
             </div>
-            <DropdownMenuSeparator className="bg-slate-100 border-dashed border-t h-px mx-0 my-2" />
+            <DropdownMenuSeparator className="bg-slate-100 dark:bg-slate-800 border-dashed border-t h-px mx-0 my-2" />
             <div className="space-y-1">
               <DropdownMenuItem className="py-2.5 px-3 rounded-xl cursor-pointer hover:bg-slate-50 group">
                 <div className="flex items-center gap-3 w-full">

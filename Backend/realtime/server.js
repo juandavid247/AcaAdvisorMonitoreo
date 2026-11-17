@@ -12,7 +12,8 @@ const { onMessageHandler, onCloseHandler } = require('./source/handler/datahandl
 // For count to create cluster workers
 // Adjust the number of CPU cores based on your server's capabilities
 // const numCPUs = os.cpus().length; // Automatically use all available CPU cores
-const numCPUs = 2;
+// Single worker so all WebSocket connections and Redis Pub/Sub events share unified in-memory state
+const numCPUs = 1;
 
 if (cluster.isMaster) {
     console.log(`Master process ${process.pid} is running`);

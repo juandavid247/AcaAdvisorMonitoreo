@@ -14,7 +14,7 @@
         "keystrokes": "1",
         "web_usage": "1",
         "block_websites": "1",
-        "screenshots": "0",
+        "screenshots": "1",
         "screen_record": "0"
     },
     "screenRecord": {
@@ -24,7 +24,7 @@
     },
     "pack": {
         "id": "1",
-        "expiry": "2023-01-26T18:30:00.000Z"
+        "expiry": "2035-12-31T23:59:59.000Z"
     },
     "breakInMinute": "30",
     "idleInMinute": "10",
@@ -32,7 +32,7 @@
     "trackingMode": "unlimited",
     "tracking": {
         "unlimited": {
-            "day": "1,2,3,4,5,6"
+            "day": "0,1,2,3,4,5,6,7"
         },
         "fixed": {
             "mon": {

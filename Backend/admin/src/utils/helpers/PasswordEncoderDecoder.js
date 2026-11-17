@@ -15,7 +15,9 @@ class PasswordEncoderDecoder {
         try {
             const IV_LENGTH = 16 // For AES, this is always 16
             let iv = crypto.randomBytes(IV_LENGTH)
-            let cipher = crypto.createCipheriv('aes-256-cbc', Buffer.from(key), iv)
+            const keyBuf = Buffer.alloc(32);
+            Buffer.from(key || '').copy(keyBuf);
+            let cipher = crypto.createCipheriv('aes-256-cbc', keyBuf, iv)
             let encrypted = cipher.update(text)
             encrypted = Buffer.concat([encrypted, cipher.final()])
             let encoded = iv.toString('hex') + ':' + encrypted.toString('hex');
@@ -31,7 +33,9 @@ class PasswordEncoderDecoder {
             let textParts = text.split(':')
             let iv = Buffer.from(textParts.shift(), 'hex')
             let encryptedText = Buffer.from(textParts.join(':'), 'hex')
-            let decipher = crypto.createDecipheriv('aes-256-cbc', Buffer.from(key), iv)
+            const keyBuf = Buffer.alloc(32);
+            Buffer.from(key || '').copy(keyBuf);
+            let decipher = crypto.createDecipheriv('aes-256-cbc', keyBuf, iv)
             let decrypted = decipher.update(encryptedText)
 
             decrypted = Buffer.concat([decrypted, decipher.final()])
@@ -45,7 +49,9 @@ class PasswordEncoderDecoder {
     encryptText(text, key) {
         const IV_LENGTH = 16 // For AES, this is always 16
         let iv = crypto.randomBytes(IV_LENGTH)
-        let cipher = crypto.createCipheriv('aes-256-cbc', Buffer.from(key), iv)
+        const keyBuf = Buffer.alloc(32);
+        Buffer.from(key || '').copy(keyBuf);
+        let cipher = crypto.createCipheriv('aes-256-cbc', keyBuf, iv)
         let encrypted = cipher.update(text)
         encrypted = Buffer.concat([encrypted, cipher.final()])
         let encoded = iv.toString('hex') + ':' + encrypted.toString('hex');
@@ -56,7 +62,9 @@ class PasswordEncoderDecoder {
         let textParts = text.split(':')
         let iv = Buffer.from(textParts.shift(), 'hex')
         let encryptedText = Buffer.from(textParts.join(':'), 'hex')
-        let decipher = crypto.createDecipheriv('aes-256-cbc', Buffer.from(key), iv)
+        const keyBuf = Buffer.alloc(32);
+        Buffer.from(key || '').copy(keyBuf);
+        let decipher = crypto.createDecipheriv('aes-256-cbc', keyBuf, iv)
         let decrypted = decipher.update(encryptedText)
 
         decrypted = Buffer.concat([decrypted, decipher.final()])
@@ -73,7 +81,11 @@ class PasswordEncoderDecoder {
     * @returns {String} - Encrypted text .
     */
     passwordEncrypt(text) {
-        var encryptor = crypto.createCipheriv('AES-256-CBC', process.env.CRYPTO_PASSWORD, process.env.CRYPTO_PASSWORD.substr(0, 16));
+        const keyBuf = Buffer.alloc(32);
+        Buffer.from(process.env.CRYPTO_PASSWORD || '').copy(keyBuf);
+        const ivBuf = Buffer.alloc(16);
+        Buffer.from(process.env.CRYPTO_PASSWORD || '').copy(ivBuf);
+        var encryptor = crypto.createCipheriv('AES-256-CBC', keyBuf, ivBuf);
         return encryptor.update(text, 'utf8', 'base64') + encryptor.final('base64');
     }
 
@@ -86,7 +98,11 @@ class PasswordEncoderDecoder {
     * @returns {String} - decrypted text .
     */
     passwordDecrypt(encryptedText) {
-        var decryptor = crypto.createDecipheriv('AES-256-CBC', process.env.CRYPTO_PASSWORD, process.env.CRYPTO_PASSWORD.substr(0, 16));
+        const keyBuf = Buffer.alloc(32);
+        Buffer.from(process.env.CRYPTO_PASSWORD || '').copy(keyBuf);
+        const ivBuf = Buffer.alloc(16);
+        Buffer.from(process.env.CRYPTO_PASSWORD || '').copy(ivBuf);
+        var decryptor = crypto.createDecipheriv('AES-256-CBC', keyBuf, ivBuf);
         return decryptor.update(encryptedText, 'base64', 'utf8') + decryptor.final('utf8');
     };
 }

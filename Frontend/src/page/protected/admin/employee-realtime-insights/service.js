@@ -11,7 +11,7 @@ const formatSecondsToHMS = (value) => {
     return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
 };
 
-const getEmployees = async () => {
+const getEmployees = async (timezone = "America/Bogota") => {
     try {
         const { data } = await apiService.apiInstance.post("/user/fetch-users", {
             status: "",
@@ -19,7 +19,7 @@ const getEmployees = async () => {
             location_id: "",
             department_id: "",
             role_id: "",
-            day: new Date().toISOString().slice(0, 10),
+            day: moment().tz(timezone).format("YYYY-MM-DD"),
             limit: 100,
             skip: 0,
             name: "",
@@ -64,7 +64,7 @@ const getEmployees = async () => {
     }
 };
 
-const getProductivityData = async (timezone = "Asia/Kolkata") => {
+const getProductivityData = async (timezone = "America/Bogota") => {
     try {
         const now = moment().tz(timezone);
         const startDate = now.clone().startOf("day").toISOString();

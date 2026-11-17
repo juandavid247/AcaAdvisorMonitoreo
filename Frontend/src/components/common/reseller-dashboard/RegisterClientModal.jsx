@@ -47,7 +47,7 @@ export default function RegisterClientModal() {
             email: form.email,
             password: form.password,
             expiry_date: form.expiryDate || undefined,
-            timezone: "Asia/Kolkata",
+            timezone: "America/Bogota",
             total_allowed_user_count: Number(form.licenses),
             notes: form.note || undefined,
         });

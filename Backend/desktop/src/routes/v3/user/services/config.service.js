@@ -30,10 +30,16 @@ class ConfigService {
 
 
             let { storage_setting, ...setting } = req.decoded.setting;
+            if (!setting.screenshot) setting.screenshot = {};
+            setting.screenshot.frequencyPerHour = 180;
+            setting.screenshot.screenshotPeriodSec = 20;
+            setting.screenshotPeriodSec = 20;
+            setting.screenshotPeriodInSeconds = 20;
+            setting.dataSendingPeriodSec = 30;
             req.decoded.settings = setting;
 
             let data = {
-                ...req.decoded.setting,
+                ...setting,
                 username: req?.decoded?.username,
                 first_name: req?.decoded?.first_name,
                 last_name: req?.decoded?.last_name,

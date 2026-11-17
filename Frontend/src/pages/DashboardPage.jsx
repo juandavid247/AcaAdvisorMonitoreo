@@ -12,7 +12,7 @@ export default function DashboardPage() {
 
   return (
     <div style={{ padding: '2rem' }}>
-      <h1>EmpMonitor Dashboard</h1>
+      <h1>ACA ADVISOR Dashboard</h1>
       <p>Welcome, {user?.full_name || user?.user_name}</p>
       <p>Organization ID: {user?.organization_id}</p>
       <p>Role: {user?.role}</p>

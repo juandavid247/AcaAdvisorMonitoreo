@@ -152,7 +152,7 @@ export const useRealtimeInsightsStore = create((set, get) => ({
 
         set((state) => ({
             employees: state.employees.map((emp) => {
-                const isOnline = onlineSet.has(Number(emp.uId));
+                const isOnline = onlineSet.has(Number(emp.uId)) || onlineSet.has(Number(emp.id));
                 const newStatus = isOnline ? "online" : "offline";
                 if (emp.status === newStatus) return emp; // skip unchanged
                 return { ...emp, status: newStatus };
@@ -165,9 +165,10 @@ export const useRealtimeInsightsStore = create((set, get) => ({
     },
 
     _updateUserActivity: (data) => {
-        if (!data?.user_id) return;
+        if (!data?.user_id && !data?.employee_id) return;
 
         const userId = Number(data.user_id);
+        const empId = Number(data.employee_id || data.user_id);
         const activity = {
             title: data.windText || "",
             appName: data.appName || "",
@@ -178,7 +179,7 @@ export const useRealtimeInsightsStore = create((set, get) => ({
 
         set((state) => ({
             employees: state.employees.map((emp) =>
-                Number(emp.uId) === userId
+                Number(emp.uId) === userId || Number(emp.id) === userId || Number(emp.id) === empId || Number(emp.uId) === empId
                     ? { ...emp, activity, status: "online" }
                     : emp
             ),

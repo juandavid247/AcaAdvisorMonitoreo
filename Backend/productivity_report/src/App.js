@@ -18,6 +18,7 @@ const Logger = require('./Logger').logger;
 const fs = require('fs');
 const fileStreamRotator = require('file-stream-rotator')
 const logDir = __dirname + '/logger/responseLog';
+fs.mkdirSync(logDir, { recursive: true });
 const modules = require('./modules/alerts/Alerts');
 
 const swaggerMiddleware = require('./utils/swagger/swagger.auth');

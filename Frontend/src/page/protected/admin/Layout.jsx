@@ -18,16 +18,16 @@ export const AdminLayout = ({ children }) => {
     }, [pathname]);
 
     return (
-        <div>
+        <div className="min-h-screen bg-[#F8FAFC] dark:bg-[#0B1120] text-slate-900 dark:text-slate-100 transition-colors duration-200">
             <SidebarProvider>
                 <AppSidebar />
-                <main className="w-full flex flex-col  overflow-x-hidden">
+                <main className="w-full flex flex-col overflow-x-hidden bg-[#F8FAFC] dark:bg-[#0B1120]">
                     <TopHeader />
                     <div
                         ref={scrollRef}
-                        className="flex-1 max-h-[calc(100vh-70px)] overflow-y-auto flex flex-col"
+                        className="flex-1 max-h-[calc(100vh-70px)] overflow-y-auto flex flex-col bg-[#F8FAFC] dark:bg-[#0B1120]"
                     >
-                        <div className="flex-1">{children}</div>
+                        <div className="flex-1 p-1 sm:p-2">{children}</div>
                         <Footer show={showFooter} />
                     </div>
                 </main>

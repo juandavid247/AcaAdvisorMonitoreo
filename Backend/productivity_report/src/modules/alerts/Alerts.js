@@ -16,10 +16,9 @@ event.setMaxListeners(0);
 // }
 event.on('activity', async (docs) => {
     try {
-        if (docs.length === 0) return;
-        // if (process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'local') {
+        if (!docs || docs.length === 0) return;
+        if (!process.env.ALERT_SERVICE_URL || !process.env.ALERT_SERVICE_URL.startsWith('http')) return;
         await axios.post(process.env.ALERT_SERVICE_URL, { docs });
-        // }
         return;
     } catch (err) {
         console.log('-------error occured------', err.message);

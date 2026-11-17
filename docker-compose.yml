@@ -1,0 +1,296 @@
+version: '3.8'
+
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: emp_mysql
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_DATABASE: empmonitor
+      MYSQL_USER: empuser
+      MYSQL_PASSWORD: emppassword
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./Backend/migrations/emp-monitor.sql:/docker-entrypoint-initdb.d/emp-monitor.sql:ro
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-prootpassword"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  mongodb:
+    image: mongo:6.0
+    container_name: emp_mongodb
+    restart: always
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: empuser
+      MONGO_INITDB_ROOT_PASSWORD: emppassword
+      MONGO_INITDB_DATABASE: empmonitor
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+
+  redis:
+    image: redis:7-alpine
+    container_name: emp_redis
+    restart: always
+    ports:
+      - "6379:6379"
+
+  admin:
+    build:
+      context: .
+      dockerfile: ./Backend/admin/Dockerfile
+    container_name: emp_admin
+    restart: always
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      VERSION: V3
+      IS_DEBUGGING: "false"
+      BUCKET_NAME: "empmonitor-storage"
+      BUCKET_NAME_BIOMETRICS: "empmonitor-biometrics"
+      AUTH_METHOD_V3: "true"
+      ADMIN_PASSWORD: "admin123"
+      ADMIN_DETAILS: '{"name":"Admin User","first_name":"Admin","last_name":"User","email":"admin@empmonitor.local","username":"admin","product_id":1,"total_allowed_user_count":500,"begin_date":"2024-01-01","expire_date":"2030-12-31","timezone":"America/Bogota"}'
+      MYSQL_HOST: mysql
+      MYSQL_USERNAME: empuser
+      MYSQL_PASSWORD: emppassword
+      MYSQL_DBNAME: empmonitor
+      MONGO_URI: mongodb://empuser:emppassword@mongodb:27017/empmonitor?authSource=admin
+      REDIS_HOST: redis
+      REDIS_PASSWORD: ""
+      SESSION_SECRET: empmonitor_session_secret_2026
+      JWT_ACCESS_TOKEN_SECRET: empmonitor_secret_jwt_access_2026
+      CRYPTO_PASSWORD: empmonitor_crypto_secure_password
+      ORGANIZATION_ID: "0"
+      IP_MASKING_ORG_ID: "0"
+      ORGANIZATION_ID_WITH_OPTIONAL_USER_EMAIL: "0"
+      WORKING_HOURS_ORG_ID: "0"
+      SUSPEND_EMPLOYEES_ORG_ID: "0"
+      CUSTOMSCREENSHOT_ORG_ID: "0"
+      OFFICE_TIME_ORGANIZATION_ID: "0"
+      WEB_SOCKET_SERVER_URL: http://web-socket-server:8080
+      SHARED_SCREENSHOTS_PATH: /app/shared_screenshots
+    ports:
+      - "3000:3000"
+      - "5002:3000"
+    volumes:
+      - screenshots_data:/app/shared_screenshots
+    depends_on:
+      mysql:
+        condition: service_healthy
+      mongodb:
+        condition: service_started
+      redis:
+        condition: service_started
+
+  store-logs-api:
+    build:
+      context: .
+      dockerfile: ./Backend/store-logs-api/Dockerfile
+    container_name: emp_store_logs_api
+    restart: always
+    environment:
+      NODE_ENV: production
+      PORT: 3001
+      IS_DEBUGGING: "false"
+      ENABLE_VALIDATION: "false"
+      TIMEZONE_SEQUELIZE: "+00:00"
+      TIMEZONE: "UTC"
+      MONGO_URI: mongodb://empuser:emppassword@mongodb:27017/empmonitor?authSource=admin
+      MONGO_DB_NAME: empmonitor
+      MONGO_USER: empuser
+      MONGO_PASSWORD: emppassword
+      MYSQL_HOST: mysql
+      MYSQL_USERNAME: empuser
+      MYSQL_PASSWORD: emppassword
+      MYSQL_DATABASE: empmonitor
+      REDIS_HOST: redis
+      REDIS_PASSWORD: ""
+      JWT_ACCESS_TOKEN_SECRET: empmonitor_secret_jwt_access_2026
+      JWT_REFRESH_TOKEN_SECRET: empmonitor_secret_jwt_refresh_2026
+      JWT_EXPIRY: "10h"
+      CRYPTO_PASSWORD: empmonitor_crypto_secure_password
+      WEB_SOCKET_SERVER_URL: http://web-socket-server:8080
+      UPLOAD_PATH: "./public/uploads"
+      SS_UPLOAD_PATH: "./public/uploads"
+      SHARED_SCREENSHOTS_PATH: "/app/shared_screenshots"
+      ACTIVITY_PRODUCTIVITY_URL: "http://productivity-report:3005/api/v1/reports/activity"
+      MAX_REQUEST_ALLOWED: "2500000"
+      MAX_REQUEST_ALLOWED_TIMEFRAME: "300"
+    ports:
+      - "3001:3001"
+    volumes:
+      - screenshots_data:/app/shared_screenshots
+    depends_on:
+      mysql:
+        condition: service_healthy
+      mongodb:
+        condition: service_started
+      redis:
+        condition: service_started
+
+  productivity-report:
+    build:
+      context: .
+      dockerfile: ./Backend/productivity_report/Dockerfile
+    container_name: emp_productivity_report
+    restart: always
+    environment:
+      NODE_ENV: production
+      PORT: 3005
+      VERSION: V1
+      IS_DEBUGGING: "false"
+      MYSQL_HOST: mysql
+      MYSQL_USERNAME: empuser
+      MYSQL_PASSWORD: emppassword
+      MYSQL_DBNAME: empmonitor
+      MYSQL_POOL_CONNECTION_LIMIT: 10
+      MONGO_URI: mongodb://empuser:emppassword@mongodb:27017/empmonitor?authSource=admin
+      REDIS_HOST: redis
+      REDIS_PASSWORD: ""
+      SESSION_SECRET: empmonitor_session_secret_2026
+      JWT_ACCESS_TOKEN_SECRET: empmonitor_secret_jwt_access_2026
+      JWT_SECRET: empmonitor_secret_jwt_access_2026
+      CRYPTO_PASSWORD: empmonitor_crypto_secure_password
+      REALTIME_SOCKET_URL: ws://realtime:3003
+    ports:
+      - "3005:3005"
+    depends_on:
+      mysql:
+        condition: service_healthy
+      mongodb:
+        condition: service_started
+      redis:
+        condition: service_started
+
+  web-socket-server:
+    build:
+      context: ./Backend/web-socket-server
+    container_name: emp_websocket_server
+    restart: always
+    environment:
+      NODE_ENV: production
+      PORT: 8080
+      NOTIFICATION_PREFIX: notification
+      JWT_ACCESS_TOKEN_SECRET: empmonitor_secret_jwt_access_2026
+      CRYPTO_PASSWORD: empmonitor_crypto_secure_password
+    ports:
+      - "8080:8080"
+
+  remote_socket:
+    build:
+      context: .
+      dockerfile: ./Backend/remote_socket/Dockerfile
+    container_name: emp_remote_socket
+    restart: always
+    environment:
+      NODE_ENV: production
+      PORT: 3002
+      REDIS_HOST: redis
+      REDIS_PASSWORD: ""
+      JWT_ACCESS_TOKEN_SECRET: empmonitor_secret_jwt_access_2026
+      JWT_REFRESH_TOKEN_SECRET: empmonitor_secret_jwt_refresh_2026
+      CRYPTO_PASSWORD: empmonitor_crypto_secure_password
+    ports:
+      - "3002:3002"
+    depends_on:
+      - redis
+
+  realtime:
+    build:
+      context: ./Backend/realtime
+    container_name: emp_realtime
+    restart: always
+    environment:
+      NODE_ENV: production
+      PORT: 3003
+      REDIS_HOST: redis
+      REDIS_HOST_SUBSCRIBER: redis
+      REDIS_HOST_PUBLISHER: redis
+      REDIS_PASSWORD: ""
+      JWT_ACCESS_TOKEN_SECRET: empmonitor_secret_jwt_access_2026
+      JWT_REFRESH_TOKEN_SECRET: empmonitor_secret_jwt_refresh_2026
+      CRYPTO_PASSWORD: empmonitor_crypto_secure_password
+      SHARED_SCREENSHOTS_PATH: "/app/shared_screenshots"
+    ports:
+      - "3003:3003"
+    volumes:
+      - screenshots_data:/app/shared_screenshots:ro
+    depends_on:
+      - redis
+
+  desktop:
+    build:
+      context: .
+      dockerfile: ./Backend/desktop/Dockerfile
+    container_name: emp_desktop
+    restart: always
+    environment:
+      NODE_ENV: production
+      PORT: 3004
+      VERSION: V3
+      IS_DEBUGGING: "false"
+      MYSQL_HOST: mysql
+      MYSQL_USERNAME: empuser
+      MYSQL_PASSWORD: emppassword
+      MYSQL_DBNAME: empmonitor
+      MYSQL_POOL_CONNECTION_LIMIT: 10
+      MONGO_URI: mongodb://empuser:emppassword@mongodb:27017/empmonitor?authSource=admin
+      REDIS_HOST: redis
+      REDIS_PASSWORD: ""
+      SESSION_SECRET: empmonitor_session_secret_2026
+      JWT_ACCESS_TOKEN_SECRET: empmonitor_secret_jwt_access_2026
+      JWT_REFRESH_TOKEN_SECRET: empmonitor_secret_jwt_refresh_2026
+      JWT_SECRET: empmonitor_secret_jwt_access_2026
+      CRYPTO_PASSWORD: empmonitor_crypto_secure_password
+      SHORTNER_DEFAULT_ADDED_VALUE: "1000000000000"
+      ENABLE_NEWRELIC: "false"
+      WEB_SOCKET_SERVER_URL: http://web-socket-server:8080
+      COMP_UNAME_ORG_ID: "1"
+      MERGE_USERNAME_ORG_ID: "0"
+      SPECIAL_ORGANIZATION_ID: "0"
+      SPECIAL_USERNAME: "0"
+      RESTRICTED_USERNAME: "admin"
+      RESTRICTED_ORGANIZATION_ID: "0"
+      CHECK_PASSWORD: "false"
+      PASSWORD_CHECK_VERSION: "2.0.22"
+      CHECK_PASSWORD_ORGANIZATION_ID: "0"
+      ORGANIZATION_ID: "0"
+      JWT_TOKEN_LIFE: "10h"
+      ADMIN_URL_PRODUCTION: "http://admin:3000/"
+      ADMIN_URL_DEV: "http://admin:3000/"
+      MAX_REQUEST_ALLOWED: "250000"
+      MAX_REQUEST_ALLOWED_TIMEFRAME: "300"
+      PLAN_CACHE_INTERVAL: "3600"
+    ports:
+      - "3004:3004"
+      - "5004:3004"
+    depends_on:
+      mysql:
+        condition: service_healthy
+      mongodb:
+        condition: service_started
+      redis:
+        condition: service_started
+
+  frontend:
+    build:
+      context: ./Frontend
+    container_name: emp_frontend
+    restart: always
+    ports:
+      - "8081:80"
+    depends_on:
+      - admin
+      - store-logs-api
+
+volumes:
+  mysql_data:
+  mongo_data:
+  screenshots_data:

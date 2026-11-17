@@ -192,7 +192,7 @@ export const useLiveMonitoringStore = create((set, get) => ({
         // Update agent status in state (pure state update, no side effects)
         set((state) => ({
             agents: state.agents.map((agent) => {
-                const isOnline = onlineSet.has(Number(agent.uId));
+                const isOnline = onlineSet.has(Number(agent.uId)) || onlineSet.has(Number(agent.id));
                 const newStatus = isOnline ? "Online" : "Offline";
                 if (agent.status === newStatus) return agent;
                 return { ...agent, status: newStatus };
@@ -202,7 +202,7 @@ export const useLiveMonitoringStore = create((set, get) => ({
         // Update modal agent's online status if open
         const { modalAgent } = get();
         if (modalAgent) {
-            const isModalAgentOnline = onlineSet.has(Number(modalAgent.uId));
+            const isModalAgentOnline = onlineSet.has(Number(modalAgent.uId)) || onlineSet.has(Number(modalAgent.id));
             const currentStatus = modalAgent.status;
             const newStatus = isModalAgentOnline ? "Online" : "Offline";
             if (currentStatus !== newStatus) {
@@ -220,7 +220,7 @@ export const useLiveMonitoringStore = create((set, get) => ({
         const screenCount = renderScreen(parsed, false);
 
         const { modalAgent } = get();
-        if (modalAgent && Number(modalAgent.uId) === Number(parsed.userId)) {
+        if (modalAgent && (Number(modalAgent.uId) === Number(parsed.userId) || Number(modalAgent.id) === Number(parsed.userId) || (parsed.employeeId && (Number(modalAgent.id) === Number(parsed.employeeId) || Number(modalAgent.uId) === Number(parsed.employeeId))))) {
             set({ modalScreenCount: screenCount });
         }
     },

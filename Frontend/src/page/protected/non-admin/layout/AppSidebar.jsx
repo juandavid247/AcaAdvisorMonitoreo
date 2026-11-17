@@ -165,28 +165,28 @@ export function NonAdminAppSidebar() {
 
   return (
     <Sidebar collapsible="icon">
-      <SidebarHeader className="bg-white border-b border-slate-200/60 p-0">
+      <SidebarHeader className="bg-white dark:bg-slate-900 border-b border-slate-200/80 dark:border-slate-800 p-0 transition-colors duration-200">
         <div
           className={`flex items-center justify-between transition-all duration-200 ease-in-out ${
-            !open ? "px-2 py-4 justify-center" : "p-2"
+            !open ? "px-2 py-4 justify-center" : "p-3"
           }`}
         >
           <div className="flex items-center gap-2">
             <div className="flex items-center justify-center font-bold">
               <img
                 src={open ? empLogo : favLogo}
-                className={open ? "w-40" : "w-8 h-8 object-contain"}
-                alt="EmpMonitor"
+                className={open ? "h-11 w-auto max-w-[170px] object-contain" : "w-8 h-8 object-contain"}
+                alt="ACA ADVISOR S.A.S."
               />
             </div>
           </div>
           {open && (
-            <SidebarTrigger className="h-8 w-8 cursor-pointer rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600" />
+            <SidebarTrigger className="h-8 w-8 cursor-pointer rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition-colors" />
           )}
         </div>
       </SidebarHeader>
 
-      <SidebarContent className="bg-white">
+      <SidebarContent className="bg-white dark:bg-slate-900 transition-colors duration-200">
         <SidebarGroup>
           <SidebarGroupContent>
             <SidebarMenu className="flex flex-col gap-1 group-data-[collapsible=icon]:px-0 px-3">
@@ -198,15 +198,15 @@ export function NonAdminAppSidebar() {
         </SidebarGroup>
       </SidebarContent>
 
-      <SidebarFooter className="bg-white p-3 group-data-[collapsible=icon]:hidden">
-        <div className="mt-1 rounded-3xl bg-[linear-gradient(160deg,#94B6E1_0%,#1D4381_100%)] p-4 text-center text-white">
+      <SidebarFooter className="bg-white dark:bg-slate-900 border-t border-slate-100 dark:border-slate-800/80 p-3 group-data-[collapsible=icon]:hidden transition-colors duration-200">
+        <div className="rounded-2xl bg-gradient-to-br from-[#0F7CB9] to-[#30A9E3] p-3.5 text-center text-white shadow-md shadow-[#0F7CB9]/15">
           <div className="mb-2 flex justify-center">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl shadow-[0_0_10px_rgba(255,255,255,0.6)]">
-              <img src={smallempLogo} alt="" />
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/20 backdrop-blur-sm shadow-inner">
+              <img src={smallempLogo} alt="ACA ADVISOR" className="w-6 h-6 object-contain" />
             </div>
           </div>
-          <p className="mb-1 text-sm font-semibold">{t("sidebar_manager_portal")}</p>
-          <p className="text-xs leading-relaxed text-blue-100">
+          <p className="mb-1 text-xs font-bold uppercase tracking-wider">{t("sidebar_manager_portal")}</p>
+          <p className="text-[11px] leading-relaxed text-sky-100">
             {t("sidebar_manager_portal_desc")}
           </p>
         </div>

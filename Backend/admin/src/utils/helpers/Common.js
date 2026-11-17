@@ -415,6 +415,9 @@ class Common {
     }
 
     getTime = (expire) => {
+        if (!expire || typeof expire !== 'string') {
+            return (24 * 60 * 60);
+        }
         if (expire.charAt(expire.length - 1) == 'h') {
             const time = +expire.substring(0, expire.lastIndexOf("h"));
             return time * (60 * 60);

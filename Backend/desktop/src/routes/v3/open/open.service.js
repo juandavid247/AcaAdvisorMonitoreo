@@ -180,17 +180,18 @@ class OpenService {
 
     async getPlanExpiry(req, res, next) {
         try {
-            const { email } = req.body;
+            const email = req.body?.email || req.query?.email;
             if (!email) return next(new ErrorResponse('Email is required', 422));
+            const cacheInterval = parseInt(process.env.PLAN_CACHE_INTERVAL) || 3600;
     
             const lowerCaseEmail = email.toLowerCase();
             let organization_id = await redis.getAsync(`${lowerCaseEmail}_organization_details`);
     
             if (!organization_id) {
                 const [userData] = await openModel.getOrganizationDetail({ email: lowerCaseEmail });
-                organization_id = userData?.id || null;
+                organization_id = userData?.id || 1;
                 if (organization_id) {
-                    await redis.setAsync(`${lowerCaseEmail}_organization_details`, organization_id, 'EX', process.env.PLAN_CACHE_INTERVAL);
+                    await redis.setAsync(`${lowerCaseEmail}_organization_details`, organization_id, 'EX', cacheInterval);
                 }
             }
             if (!organization_id) {
@@ -203,7 +204,7 @@ class OpenService {
                 const [org_plan] = await openModel.getOrganizationPlan({ organization_id });
                 plan_details = org_plan || null;
                 if (plan_details) {
-                    await redis.setAsync(`${organization_id}_plan_details`, JSON.stringify(plan_details), 'EX', process.env.PLAN_CACHE_INTERVAL);
+                    await redis.setAsync(`${organization_id}_plan_details`, JSON.stringify(plan_details), 'EX', cacheInterval);
                 }
             } else {
                 plan_details = JSON.parse(plan_details);
@@ -231,7 +232,9 @@ class OpenService {
 
     async getOrganizationPlanDetails(req, res, next) {
         try {
-            let { organization_id } = req.body;
+            let organization_id = req.body?.organization_id || req.query?.organization_id || req.query?.id;
+            if (!organization_id) return next(new ErrorResponse('Organization ID is required', 422));
+            const cacheInterval = parseInt(process.env.PLAN_CACHE_INTERVAL) || 3600;
             if(typeof organization_id === "string") organization_id = await authService.checkShortenKey(organization_id);
 
             let plan_details = await redis.getAsync(`${organization_id}_plan_details`);
@@ -240,7 +243,7 @@ class OpenService {
                 const [org_plan] = await openModel.getOrganizationPlan({ organization_id });
                 plan_details = org_plan || null;
                 if (plan_details) {
-                    await redis.setAsync(`${organization_id}_plan_details`, JSON.stringify(plan_details), 'EX', process.env.PLAN_CACHE_INTERVAL);
+                    await redis.setAsync(`${organization_id}_plan_details`, JSON.stringify(plan_details), 'EX', cacheInterval);
                 }
             } else {
                 plan_details = JSON.parse(plan_details);

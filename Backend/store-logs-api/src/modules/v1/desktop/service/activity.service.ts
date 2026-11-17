@@ -11,6 +11,7 @@ import { validateActivityDataSchema } from '../validation/user-activity.validati
 import { NestEventEmitter } from 'nest-event';
 import { Logger } from '../../../../common/errlogger/logger';
 import configFile from "../../../../../../config/config.js";
+import { RedisService } from 'nestjs-redis';
 
 @Injectable()
 export class ActivityService {
@@ -19,6 +20,7 @@ export class ActivityService {
         private readonly responseHelperService: ResponseHelperService,
         private readonly emitter: NestEventEmitter,
         private readonly logger: Logger,
+        private readonly redisService: RedisService,
     ) { }
 
     async insertUsageDataHandler(userData: IDecodedToken, activityData: UsageActivityDataDTO, userAgent: string, ip: string): Promise<IResponse> {
@@ -58,12 +60,12 @@ export class ActivityService {
                             adminId: userData.organization_id,
                             userEmail: userData.email,
                             userId: userData.employee_id,
-                            timezone: userData.timezone,
+                            timezone: userData.timezone || 'America/Bogota',
 
                             systemTimeUtc: item.systemTimeUtc,
                             dataId: item.dataId,
-                            date: moment(item.dataId).format('DD-MM-YYYY'),
-                            time: moment(item.dataId).format('HH:mm:ss'),
+                            date: moment(item.dataId).tz(userData.timezone || 'America/Bogota').format('DD-MM-YYYY'),
+                            time: moment(item.dataId).tz(userData.timezone || 'America/Bogota').format('HH:mm:ss'),
 
                             taskNote: item.taskNote || '',
                             appVersion: userAgent,
@@ -103,12 +105,12 @@ export class ActivityService {
                         adminId: userData.organization_id,
                         userEmail: userData.email,
                         userId: userData.employee_id,
-                        timezone: userData.timezone,
+                        timezone: userData.timezone || 'America/Bogota',
 
                         systemTimeUtc: item.systemTimeUtc,
                         dataId: item.dataId,
-                        date: moment(item.dataId).format('DD-MM-YYYY'),
-                        time: moment(item.dataId).format('HH:mm:ss'),
+                        date: moment(item.dataId).tz(userData.timezone || 'America/Bogota').format('DD-MM-YYYY'),
+                        time: moment(item.dataId).tz(userData.timezone || 'America/Bogota').format('HH:mm:ss'),
 
                         taskNote: item.taskNote || '',
                         appVersion: userAgent,
@@ -154,6 +156,42 @@ export class ActivityService {
             try {
                 const result: any = await this.userActivityDataMongoModel.insert(finalData);
                 this.emitter.emit('data-receieved-for-logs', result, userData, ip);
+
+                // Publish real-time activity event to Redis for Live Dashboard
+                try {
+                    const latestItem = finalData[finalData.length - 1];
+                    const appUsage = latestItem?.appUsage || [];
+                    const latestApp = appUsage[appUsage.length - 1];
+                    if (latestApp) {
+                        const userId = (userData as any).user_id || userData.id || userData.employee_id;
+                        const empId = userData.employee_id || userId;
+                        const appTitle = latestApp.title || (latestApp as any).app || "Activo";
+                        const appName = (latestApp as any).app || "Aplicacion";
+                        const activityMsg = {
+                            message: "sending_agent_activity_to_users",
+                            organization_id: userData.organization_id,
+                            parsedMessage: {
+                                type: "realtime_usage_history_status",
+                                user_id: userId,
+                                employee_id: empId,
+                                windText: appTitle,
+                                appName: appName,
+                                currentUrl: latestApp.url || "",
+                                latitude: "",
+                                longitude: ""
+                            }
+                        };
+                        const redisClient = this.redisService.getClient();
+                        await redisClient.set(`latest_activity:${userId}`, JSON.stringify(activityMsg.parsedMessage), 'EX', 3600);
+                        if (String(empId) !== String(userId)) {
+                            await redisClient.set(`latest_activity:${empId}`, JSON.stringify(activityMsg.parsedMessage), 'EX', 3600);
+                        }
+                        await redisClient.publish("channel-update-realtime-activity", JSON.stringify(activityMsg));
+                    }
+                } catch (pubErr) {
+                    console.error('[ACTIVITY] Error publishing realtime activity:', pubErr.message);
+                }
+
                 return this.responseHelperService.sendResponse(200, 'Data saved', null, { inserted: result.length });
             } catch (error) {
                 // this.logger.logger.error(`-------------${JSON.stringify(error)}`);

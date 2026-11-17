@@ -15,3 +15,8 @@ vendor
 *-audit.json
 audit.json
 package-lock.json
+
+# Temporary installer build artifacts
+deploy/windows_agent/extracted/
+deploy/windows_agent/Output/
+deploy/windows_agent/EmpMonitor.zip

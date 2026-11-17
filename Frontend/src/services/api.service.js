@@ -1,8 +1,10 @@
 import axios from 'axios';
 
-const BASE_URL = import.meta.env.VITE_API_URL || `https://test-monitor-api.empcloud.com/api/v3`;
-const SOCKET_BASE_URL = import.meta.env.VITE_SOCKET_URL || `wss://test-monitor-ws.empcloud.com`;
-const BACKEND_V4_URL = import.meta.env.VITE_BACKEND_V4_URL || `https://test-monitor-api.empcloud.com`;
+const HOST = typeof window !== 'undefined' && window.location?.hostname ? window.location.hostname : 'localhost';
+const BASE_URL = import.meta.env.VITE_API_URL || `http://${HOST}:3000/api/v3`;
+const SOCKET_BASE_URL = import.meta.env.VITE_SOCKET_URL || `ws://${HOST}:3003`;
+const NOTIFICATION_SOCKET_URL = import.meta.env.VITE_NOTIFICATION_SOCKET_URL || `ws://${HOST}:8080/notification`;
+const BACKEND_V4_URL = import.meta.env.VITE_BACKEND_V4_URL || `http://${HOST}:3000`;
 
 const authInstance = axios.create({
     baseURL: BASE_URL,
@@ -55,5 +57,6 @@ export default {
     authInstance: authInstance,
     apiInstance: apiInstance,
     SOCKET_BASE_URL,
+    NOTIFICATION_SOCKET_URL,
     loginApiInstance
 };

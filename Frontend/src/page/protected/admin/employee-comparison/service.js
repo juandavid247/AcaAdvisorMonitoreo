@@ -29,7 +29,7 @@ const pickEmployeesByType = (payload, type) => {
     }
 };
 
-export const getEmployeeComparison = async ({ type, timezone = "Asia/Kolkata" } = {}) => {
+export const getEmployeeComparison = async ({ type, timezone = "America/Bogota" } = {}) => {
     try {
         const date = moment().tz(timezone).format("YYYY-MM-DD");
         const { data } = await apiService.apiInstance.get(`/dashboard/employees?date=${date}`);
@@ -104,7 +104,7 @@ export const getEmployeeProductivity = async ({
     employeeId,
     startDate,
     endDate,
-    timezone = "Asia/Kolkata"
+    timezone = "America/Bogota"
 } = {}) => {
     try {
         if (!employeeId || employeeId === "all") {

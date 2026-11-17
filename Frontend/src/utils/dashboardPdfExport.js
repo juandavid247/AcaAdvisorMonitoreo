@@ -429,7 +429,7 @@ export const generateModulePdf = async ({
     doc.line(margin, ph - 28, pageWidth - margin, ph - 28);
     doc.setFontSize(8);
     doc.setTextColor(...BRAND.subtle);
-    doc.text("EmpMonitor • Your Workforce Productivity Compass", margin, ph - 14);
+    doc.text("ACA ADVISOR S.A.S. • Gestión y Monitoreo Corporativo", margin, ph - 14);
     doc.text(`Page ${i} of ${pageCount}`, pageWidth - margin, ph - 14, {
       align: "right",
     });
@@ -663,7 +663,7 @@ const renderModuleSection = async (
  * @param {string} [opts.fileName]
  */
 export const generateCombinedDashboardPdf = async ({
-  title = "EmpMonitor Dashboard Report",
+  title = "ACA ADVISOR - Reporte de Dashboard",
   subtitle = "Consolidated view of every dashboard module for the selected period.",
   modules = [],
   fileName,
@@ -770,7 +770,7 @@ export const generateCombinedDashboardPdf = async ({
     doc.line(margin, pageHeight - 28, pageWidth - margin, pageHeight - 28);
     doc.setFontSize(8);
     doc.setTextColor(...BRAND.subtle);
-    doc.text("EmpMonitor • Your Workforce Productivity Compass", margin, pageHeight - 14);
+    doc.text("ACA ADVISOR S.A.S. • Gestión y Monitoreo Corporativo", margin, pageHeight - 14);
     doc.text(`Page ${i} of ${pageCount}`, pageWidth - margin, pageHeight - 14, {
       align: "right",
     });
@@ -778,6 +778,6 @@ export const generateCombinedDashboardPdf = async ({
 
   doc.save(
     fileName ||
-      `empmonitor-dashboard-report-${new Date().toISOString().slice(0, 10)}.pdf`
+      `aca-advisor-dashboard-report-${new Date().toISOString().slice(0, 10)}.pdf`
   );
 };

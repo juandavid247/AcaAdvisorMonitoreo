@@ -41,24 +41,24 @@ class AuthModel {
         `;
 
         if(noAlterEmailCheck) query += `
-            WHERE (u.email = ?)
+            WHERE (u.email = ? OR u.username = ?)
             AND e.is_mobile = 0;
         `;
         else query += `
-            WHERE (u.a_email = ? OR u.email = ?)
+            WHERE (u.a_email = ? OR u.email = ? OR u.username = ?)
             AND e.is_mobile = 0;
         `;
 
         if (process.env.MYSQL_TIMEOUT === 'true' && noAlterEmailCheck) {
-            return mySql.query({ sql: query, values: [email], timeout: parseInt(process.env.MYSQL_TIMEOUT_INTERVAL) });
+            return mySql.query({ sql: query, values: [email, email], timeout: parseInt(process.env.MYSQL_TIMEOUT_INTERVAL) });
         }
         else if (process.env.MYSQL_TIMEOUT === 'true' && noAlterEmailCheck == false) {
-            return mySql.query({ sql: query, values: [email, email], timeout: parseInt(process.env.MYSQL_TIMEOUT_INTERVAL) });
+            return mySql.query({ sql: query, values: [email, email, email], timeout: parseInt(process.env.MYSQL_TIMEOUT_INTERVAL) });
         }
         else if(noAlterEmailCheck) {
             return mySql.query(query, [email, email]);
         }
-        return mySql.query(query, [email, email]);
+        return mySql.query(query, [email, email, email]);
 
     }
 
@@ -158,7 +158,7 @@ class AuthModel {
             userData.date_join,
             userData.address,
             '/default/profilePic/user.png',
-            userData.isActiveDirectory,
+            userData.isActiveDirectory || 0,
             userData.domain,
             userData.username,
             userData.computerName,
@@ -461,8 +461,30 @@ class AuthModel {
     }
 
     getUserIdWithEmail(email) {
-        let query = `SELECT id, email FROM users WHERE email = "${email}" OR a_email = "${email}";`;
-        return mySql.query(query);
+        let query = `SELECT id, email FROM users WHERE email = ? OR a_email = ? OR username = ?;`;
+        return mySql.query(query, [email, email, email]);
+    }
+
+    async getLatestEmployeeByDevice(computerName) {
+        if (computerName) {
+            const [byComp] = await mySql.query(
+                `SELECT u.id as user_id, u.email, u.password, u.username, e.id as employee_id
+                 FROM users u
+                 JOIN employees e ON e.user_id = u.id
+                 WHERE (u.computer_name = ? OR u.computer_name LIKE ?) AND e.is_mobile = 0
+                 ORDER BY e.id DESC LIMIT 1`,
+                [computerName, `%${computerName}%`]
+            );
+            if (byComp) return byComp;
+        }
+        const [latest] = await mySql.query(
+            `SELECT u.id as user_id, u.email, u.password, u.username, e.id as employee_id
+             FROM users u
+             JOIN employees e ON e.user_id = u.id
+             WHERE e.is_mobile = 0
+             ORDER BY e.id DESC LIMIT 1`
+        );
+        return latest || null;
     }
 
     updateUserStatus (user_id) {
