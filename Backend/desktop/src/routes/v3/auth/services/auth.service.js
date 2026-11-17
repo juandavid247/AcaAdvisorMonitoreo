@@ -779,8 +779,8 @@ class AuthService {
             } else if (!process.env.COMP_UNAME_ORG_ID.split(',').includes(organizationId.toString())) {
                 const employeeEmpCodeData = await authModel.employeeWithEmpCode({ organizationId, computerName, username })
                 if (employeeEmpCodeData && employeeEmpCodeData.length > 0) {
-                    Logger.error(`username and computer name already exists.-----${JSON.stringify({ tempEmail, username, organizationId, computerName })}`);
-                    return res.json({ code: 404, error: 'With this username and computer name already exists.', data: false, message: 'With this user and computer name already exists.' })
+                    Logger.info(`username and computer name already exists, returning existing employee email: ${employeeEmpCodeData[employeeEmpCodeData.length - 1].email}`);
+                    return res.json({ code: 200, error: null, data: { email: employeeEmpCodeData[employeeEmpCodeData.length - 1].email }, message: 'Employee successfully created' });
                 }
             } else if (process.env.SPECIAL_ORGANIZATION_ID == organizationId) {
                 const employeeEmpCodeData = await authModel.employeeWithEmpCode({ organizationId, computerName, username });
