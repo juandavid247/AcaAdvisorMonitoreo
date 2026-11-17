@@ -79,6 +79,13 @@ foreach ($lf in $lockFiles) {
 }
 Write-Host "  [+] Archivos de bloqueo residuales eliminados." -ForegroundColor Green
 
+# Otorgar permisos de escritura completos para usuarios locales en la carpeta de instalacion
+Write-Host "  [+] Configurando permisos de escritura para usuarios (ACL) en $targetDir..." -ForegroundColor Green
+cmd.exe /c "icacls `"$targetDir`" /grant Users:(OI)(CI)F /T /C /Q 2>nul"
+$failedSsDir = Join-Path $targetDir "failed_screenshots"
+if (-not (Test-Path $failedSsDir)) { New-Item -ItemType Directory -Path $failedSsDir -Force | Out-Null }
+cmd.exe /c "icacls `"$failedSsDir`" /grant Users:(OI)(CI)F /T /C /Q 2>nul"
+
 # 4. Configurar archivos oficiales config.js y config.json (Modo Office)
 Write-Host "`n[3/5] Configurando archivos de conexion (Modo Office Corporativo)..." -ForegroundColor Yellow
 $configsFolder = Join-Path $targetDir "configs"
@@ -111,14 +118,24 @@ Write-Host "  [+] config.js y config.json generados y protegidos con solo lectur
 
 # 5. Configurar Registro de Windows para capturas y envio periodico (Ruta real Qt QSettings: Software\screen\empm)
 Write-Host "`n[4/5] Configurando politicas de monitoreo y DLP en el Registro..." -ForegroundColor Yellow
+$userSids = @()
+try {
+    $userSids = Get-ChildItem "Registry::HKEY_USERS" -ErrorAction SilentlyContinue | 
+        Where-Object { $_.PSChildName -match '^S-1-5-21-' -and $_.PSChildName -notmatch '_Classes$' } | 
+        ForEach-Object { $_.PSChildName }
+} catch {}
+
 $regRoots = @(
     "HKCU:\Software\screen\empm",
     "HKLM:\Software\screen\empm",
     "HKCU:\Software\Empmonitor",
-    "HKCU:\Software\Empmonitor\Empmonitor",
-    "HKLM:\Software\Empmonitor",
-    "HKLM:\Software\Empmonitor\Empmonitor"
+    "HKLM:\Software\Empmonitor"
 )
+
+foreach ($sid in $userSids) {
+    $regRoots += "Registry::HKEY_USERS\$sid\Software\screen\empm"
+    $regRoots += "Registry::HKEY_USERS\$sid\Software\Empmonitor"
+}
 
 foreach ($root in $regRoots) {
     try {
@@ -149,12 +166,13 @@ foreach ($root in $regRoots) {
     } catch {}
 }
 
-# Autoarranque con Windows (especificado en installer.iss)
+# Autoarranque con Windows (especificado en installer.iss y Tarea Programada)
 $exePath = Join-Path $targetDir "aca-agent.exe"
 if (-not (Test-Path $exePath)) { $exePath = Join-Path $targetDir "empmonitor.exe" }
 try {
     Set-ItemProperty -Path "HKLM:\Software\Microsoft\Windows\CurrentVersion\Run" -Name "ACAAdvisorAgent" -Value "`"$exePath`"" -Force
-    Write-Host "  [+] Inicio automatico con Windows configurado." -ForegroundColor Green
+    cmd.exe /c "schtasks /create /tn `"ACAAdvisorAgent`" /tr `"\`"$exePath\`"`" /sc onlogon /rl highest /f 2>nul"
+    Write-Host "  [+] Inicio automatico y Tarea Programada al iniciar sesion configurados." -ForegroundColor Green
 } catch {}
 
 # 6. Iniciar el ejecutable oficial

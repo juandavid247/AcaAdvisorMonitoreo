@@ -47,6 +47,11 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
 Name: "autostart"; Description: "Iniciar automáticamente con Windows (Recomendado)"; GroupDescription: "Configuración del servicio:"
 
+[Dirs]
+Name: "{app}"; Permissions: users-full
+Name: "{app}\configs"; Permissions: users-full
+Name: "{app}\failed_screenshots"; Permissions: users-full
+
 [Files]
 ; Archivos del ejecutable y librerías
 Source: "bin\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
