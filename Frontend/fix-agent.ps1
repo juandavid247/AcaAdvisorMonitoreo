@@ -17,20 +17,53 @@ $ServerHost = "192.168.0.155"
 $OrgId = "OjUpRAB"
 $AgentCryptoPassword = "43d7dbcf81bad521552d1b59e619cced:ede717306619e874100560153a96ecc3"
 
+$computerName = $env:COMPUTERNAME
+$systemUser = $env:USERNAME
+
 # Deteccion automatica de MAC activa (Soporte Ethernet / Wi-Fi)
 $activeMac = ""
 try {
     $adapter = Get-NetAdapter -ErrorAction SilentlyContinue | Where-Object { $_.Status -eq 'Up' } | Select-Object -First 1
     if ($adapter -and $adapter.MacAddress) {
-        $activeMac = ($adapter.MacAddress -replace '-', ':').ToLower()
+        $activeMac = ($adapter.MacAddress -replace '-', ':').ToUpper()
     }
 } catch {}
 
-if ($activeMac -eq "f8:89:d2:f5:4a:87") {
-    $AgentEmail = "F8:89:D2:F5:4A:87_@Yolaine.OjUpRAB"
-} else {
-    $AgentEmail = "18:3d:2d:e1:e8:3c_@Yolaine.OjUpRAB"
+if (-not $activeMac) {
+    try {
+        $macRaw = (getmac /fo csv /nh 2>$null | Select-Object -First 1).Split(',')[0].Trim('"')
+        if ($macRaw) { $activeMac = ($macRaw -replace '-', ':').ToUpper() }
+    } catch {}
 }
+if (-not $activeMac) {
+    $activeMac = "00:50:56:C0:00:08"
+}
+
+$AgentEmail = "$($activeMac)_@$($systemUser).$OrgId"
+
+# Auto-registro dinamico en servidor para garantizar vinculacion y credenciales
+try {
+    $regPayload = @{
+        macId = $activeMac
+        organizationId = $OrgId
+        username = $systemUser
+        computerName = $computerName
+        firstname = "$computerName -"
+        lastname = $systemUser
+    } | ConvertTo-Json
+
+    $regRes = Invoke-RestMethod -Uri "http://$ServerHost:3004/api/v3/auth/register" -Method Post -Body $regPayload -ContentType "application/json" -TimeoutSec 5 -ErrorAction SilentlyContinue
+    if ($regRes -and $regRes.code -eq 200) {
+        if ($regRes.data -and $regRes.data.email) {
+            $AgentEmail = $regRes.data.email
+        } elseif ($regRes.email) {
+            $AgentEmail = $regRes.email
+        }
+        if ($regRes.data -and $regRes.data.crypto_password) {
+            $AgentCryptoPassword = $regRes.data.crypto_password
+        }
+    }
+} catch {}
 
 # 1. Comprobacion y elevacion de permisos de Administrador
 $isAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)

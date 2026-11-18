@@ -164,6 +164,8 @@ begin
     RegWriteStringValue(HKCU, 'Software\screen\empm\appSettings\data\features', 'application_usage', '1');
     RegWriteStringValue(HKCU, 'Software\screen\empm\appSettings\data\features', 'keystrokes', '1');
     RegWriteStringValue(HKCU, 'Software\screen\empm\appSettings\data\features', 'web_usage', '1');
+    RegWriteStringValue(HKCU, 'Software\screen\empm\auth', 'crypto_password', '43d7dbcf81bad521552d1b59e619cced:ede717306619e874100560153a96ecc3');
+    RegWriteStringValue(HKLM, 'Software\screen\empm\auth', 'crypto_password', '43d7dbcf81bad521552d1b59e619cced:ede717306619e874100560153a96ecc3');
 
     // Respaldo de compatibilidad en Software\EmpMonitor\EmpMonitor
     RegWriteDWordValue(HKCU, 'Software\EmpMonitor\EmpMonitor\appSettings', 'dataSendingPeriodSec', 30);

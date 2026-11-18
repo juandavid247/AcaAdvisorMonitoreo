@@ -1,14 +1,13 @@
 # ==============================================================================
-# ACA ADVISOR S.A.S. - CONFIGURACION OFICIAL DEL AGENTE CORPORATIVO WINDOWS
+# ACA ADVISOR S.A.S. - CONFIGURACION INTEGRAL DEL AGENTE CORPORATIVO WINDOWS
 # ==============================================================================
-# Este script sigue estrictamente las especificaciones del instalador oficial
-# (installer.iss y README_WINDOWS_INSTALLER.md). Configura el binario nativo
-# aca-agent.exe, establece exclusiones en Windows Defender y aplica las politicas
-# de monitoreo en tiempo real y DLP USB.
+# Configura el binario nativo (aca-agent.exe o empmonitor.exe), aplica credenciales
+# corporativas y politicas de monitoreo en tiempo real, registra exclusiones en
+# Windows Defender y vincula el equipo al servidor central ACA ADVISOR.
 # ==============================================================================
 
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
-$Host.UI.RawUI.WindowTitle = "ACA Advisor Agent - Configuracion Oficial"
+$Host.UI.RawUI.WindowTitle = "ACA Advisor Agent - Configurador Oficial"
 
 Write-Host "==========================================================" -ForegroundColor Cyan
 Write-Host "      ACA ADVISOR S.A.S. - AGENTE CORPORATIVO WINDOWS     " -ForegroundColor Cyan
@@ -16,6 +15,55 @@ Write-Host "==========================================================" -Foregro
 
 $ServerHost = "192.168.0.155"
 $OrgId = "OjUpRAB"
+$AgentCryptoPassword = "43d7dbcf81bad521552d1b59e619cced:ede717306619e874100560153a96ecc3"
+
+$computerName = $env:COMPUTERNAME
+$systemUser = $env:USERNAME
+
+# Deteccion automatica de MAC activa (Soporte Ethernet / Wi-Fi)
+$activeMac = ""
+try {
+    $adapter = Get-NetAdapter -ErrorAction SilentlyContinue | Where-Object { $_.Status -eq 'Up' } | Select-Object -First 1
+    if ($adapter -and $adapter.MacAddress) {
+        $activeMac = ($adapter.MacAddress -replace '-', ':').ToUpper()
+    }
+} catch {}
+
+if (-not $activeMac) {
+    try {
+        $macRaw = (getmac /fo csv /nh 2>$null | Select-Object -First 1).Split(',')[0].Trim('"')
+        if ($macRaw) { $activeMac = ($macRaw -replace '-', ':').ToUpper() }
+    } catch {}
+}
+if (-not $activeMac) {
+    $activeMac = "00:50:56:C0:00:08"
+}
+
+$AgentEmail = "$($activeMac)_@$($systemUser).$OrgId"
+
+# Auto-registro dinamico en servidor para garantizar vinculacion y credenciales
+try {
+    $regPayload = @{
+        macId = $activeMac
+        organizationId = $OrgId
+        username = $systemUser
+        computerName = $computerName
+        firstname = "$computerName -"
+        lastname = $systemUser
+    } | ConvertTo-Json
+
+    $regRes = Invoke-RestMethod -Uri "http://$ServerHost:3004/api/v3/auth/register" -Method Post -Body $regPayload -ContentType "application/json" -TimeoutSec 5 -ErrorAction SilentlyContinue
+    if ($regRes -and $regRes.code -eq 200) {
+        if ($regRes.data -and $regRes.data.email) {
+            $AgentEmail = $regRes.data.email
+        } elseif ($regRes.email) {
+            $AgentEmail = $regRes.email
+        }
+        if ($regRes.data -and $regRes.data.crypto_password) {
+            $AgentCryptoPassword = $regRes.data.crypto_password
+        }
+    }
+} catch {}
 
 # 1. Comprobacion y elevacion de permisos de Administrador
 $isAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
@@ -23,95 +71,76 @@ if (-not $isAdmin) {
     Write-Host "[*] Solicitando permisos de Administrador..." -ForegroundColor Yellow
     try {
         if ($PSCommandPath) {
-            Start-Process powershell.exe -ArgumentList "-NoProfile -ExecutionPolicy Bypass -File `"$PSCommandPath`"" -Verb RunAs
+            Start-Process powershell.exe -ArgumentList "-NoExit -NoProfile -ExecutionPolicy Bypass -File `"$PSCommandPath`"" -Verb RunAs
         } else {
-            Start-Process powershell.exe -ArgumentList "-NoProfile -ExecutionPolicy Bypass -Command `"& { irm http://$ServerHost:8081/downloads/fix-agent.ps1 | iex }`"" -Verb RunAs
+            Start-Process powershell.exe -ArgumentList "-NoExit -NoProfile -ExecutionPolicy Bypass -Command `"& { irm http://$ServerHost:8081/downloads/fix-agent.ps1 | iex }`"" -Verb RunAs
         }
         exit
     } catch {
-        Write-Host "[-] Se requieren permisos de Administrador para configurar Windows Defender y el Registro." -ForegroundColor Red
+        Write-Host "[-] Se requieren permisos de Administrador para configurar el agente." -ForegroundColor Red
         exit 1
     }
 }
 
 # 2. Agregar exclusiones oficiales en Windows Defender (Antivirus)
-Write-Host "`n[1/5] Configurando exclusiones oficiales en Windows Defender..." -ForegroundColor Yellow
-$InstallDirs = @(
+Write-Host "`n[1/6] Configurando exclusiones en Windows Defender..." -ForegroundColor Yellow
+$CandidateDirs = @(
     "C:\Program Files\ACA Advisor Agent",
-    "C:\Program Files (x86)\ACA Advisor Agent"
+    "C:\Program Files (x86)\ACA Advisor Agent",
+    "C:\Program Files\Empmonitor",
+    "C:\Program Files (x86)\Empmonitor",
+    "C:\Program Files\EmpMonitor\EmpMonitor"
 )
-foreach ($dir in $InstallDirs) {
+
+foreach ($dir in $CandidateDirs) {
     try {
         Add-MpPreference -ExclusionPath $dir -ErrorAction SilentlyContinue
-        Write-Host "  [+] Exclusion de carpeta agregada: $dir" -ForegroundColor Green
+        Write-Host "  [+] Exclusion de carpeta: $dir" -ForegroundColor Green
     } catch {}
 }
 try {
     Add-MpPreference -ExclusionProcess "aca-agent.exe" -ErrorAction SilentlyContinue
     Add-MpPreference -ExclusionProcess "empmonitor.exe" -ErrorAction SilentlyContinue
-    Write-Host "  [+] Exclusion de procesos agregada: aca-agent.exe, empmonitor.exe" -ForegroundColor Green
+    Write-Host "  [+] Exclusion de procesos: aca-agent.exe, empmonitor.exe" -ForegroundColor Green
 } catch {}
 
-# 3. Cerrar instancias previas y limpiar bloqueos
-Write-Host "`n[2/5] Cerrando instancias anteriores del agente..." -ForegroundColor Yellow
+# 3. Cerrar instancias previas
+Write-Host "`n[2/6] Cerrando instancias anteriores del agente..." -ForegroundColor Yellow
 Stop-Process -Name "aca-agent","empmonitor" -Force -ErrorAction SilentlyContinue
-Start-Sleep -Seconds 1
+Start-Sleep -Seconds 2
 
-# Localizar carpeta de instalacion
-$targetDir = $null
-foreach ($dir in $InstallDirs) {
-    if (Test-Path "$dir\aca-agent.exe") { $targetDir = $dir; break }
-    if (Test-Path "$dir\empmonitor.exe") { $targetDir = $dir; break }
-}
-if (-not $targetDir) {
-    $targetDir = "C:\Program Files\ACA Advisor Agent"
+# Localizar carpetas activas de instalacion
+$activeDirs = @()
+foreach ($dir in $CandidateDirs) {
+    if ((Test-Path "$dir\aca-agent.exe") -or (Test-Path "$dir\empmonitor.exe")) {
+        $activeDirs += $dir
+    }
 }
 
-if (-not (Test-Path "$targetDir\aca-agent.exe") -and -not (Test-Path "$targetDir\empmonitor.exe")) {
-    Write-Host "[*] No se detecto el ejecutable en $targetDir." -ForegroundColor Yellow
-    Write-Host "[*] Descargando e instalando ACA_Advisor_Agent_Setup.exe automaticamente..." -ForegroundColor Cyan
+# Si no existe ninguna, descargar e instalar
+if ($activeDirs.Count -eq 0) {
+    $primaryDir = "C:\Program Files\ACA Advisor Agent"
+    Write-Host "[*] No se detecto instalacion previa. Descargando ACA_Advisor_Agent_Setup.exe..." -ForegroundColor Cyan
     $installerPath = "$env:TEMP\ACA_Advisor_Agent_Setup.exe"
     try {
         [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
         Invoke-WebRequest -Uri "http://$ServerHost:8081/downloads/ACA_Advisor_Agent_Setup.exe" -OutFile $installerPath -UseBasicParsing
-        Write-Host "  [+] Instalador descargado. Ejecutando instalacion desatendida..." -ForegroundColor Green
+        Write-Host "  [+] Instalador descargado. Ejecutando instalacion silenciosa..." -ForegroundColor Green
         Start-Process -FilePath $installerPath -ArgumentList "/VERYSILENT /SUPPRESSMSGBOXES /NORESTART" -Wait
         Start-Sleep -Seconds 3
+        if (Test-Path $primaryDir) { $activeDirs += $primaryDir }
     } catch {
         Write-Host "[-] Error al descargar el instalador: $_" -ForegroundColor Red
     }
 }
 
-if (-not (Test-Path $targetDir)) {
-    Write-Host "[-] No se encontro la carpeta de instalacion del agente en $targetDir" -ForegroundColor Red
-    Write-Host "    Asegurese de haber instalado ACA Advisor Agent o extraido los binarios." -ForegroundColor Yellow
+if ($activeDirs.Count -eq 0) {
+    Write-Host "[-] No se encontro el agente en ninguna ruta estandar." -ForegroundColor Red
     exit 1
 }
 
-# Limpiar archivos de bloqueo residuales
-$lockFiles = @("planExpiryFile.txt", "EmployeeTimestamp.txt", "dataLog.txt", "usbInsLogs.txt", "usbRemLogs.txt")
-foreach ($lf in $lockFiles) {
-    $fPath = Join-Path $targetDir $lf
-    if (Test-Path $fPath) {
-        Remove-Item -Path $fPath -Force -ErrorAction SilentlyContinue
-    }
-}
-Write-Host "  [+] Archivos de bloqueo residuales eliminados." -ForegroundColor Green
-
-# Otorgar permisos de escritura completos para usuarios locales en la carpeta de instalacion
-Write-Host "  [+] Configurando permisos de escritura para usuarios (ACL) en $targetDir..." -ForegroundColor Green
-cmd.exe /c "icacls `"$targetDir`" /grant Users:(OI)(CI)F /T /C /Q 2>nul"
-$failedSsDir = Join-Path $targetDir "failed_screenshots"
-if (-not (Test-Path $failedSsDir)) { New-Item -ItemType Directory -Path $failedSsDir -Force | Out-Null }
-cmd.exe /c "icacls `"$failedSsDir`" /grant Users:(OI)(CI)F /T /C /Q 2>nul"
-
-# 4. Configurar archivos oficiales config.js y config.json (Modo Office)
-Write-Host "`n[3/5] Configurando archivos de conexion (Modo Office Corporativo)..." -ForegroundColor Yellow
-$configsFolder = Join-Path $targetDir "configs"
-if (-not (Test-Path $configsFolder)) {
-    New-Item -ItemType Directory -Path $configsFolder -Force | Out-Null
-}
-
+# 4. Configurar cada directorio encontrado (Permisos, Config, Plugins Qt)
+Write-Host "`n[3/6] Configurando archivos de conexion en directorios del agente..." -ForegroundColor Yellow
 $configJson = @"
 {
   "id": "$OrgId",
@@ -124,29 +153,52 @@ $configJson = @"
 }
 "@
 
-$configFile1 = Join-Path $configsFolder "config.js"
-$configFile2 = Join-Path $configsFolder "config.json"
+$lockFiles = @("planExpiryFile.txt", "EmployeeTimestamp.txt", "dataLog.txt", "usbInsLogs.txt", "usbRemLogs.txt")
 
-# Quitar solo lectura para escribir
-cmd.exe /c "attrib -r `"$configFile1`" 2>nul & attrib -r `"$configFile2`" 2>nul"
-[System.IO.File]::WriteAllText($configFile1, $configJson, [System.Text.Encoding]::UTF8)
-[System.IO.File]::WriteAllText($configFile2, $configJson, [System.Text.Encoding]::UTF8)
-# Proteger como solo lectura contra auto-modificaciones del binario Qt
-cmd.exe /c "attrib +r `"$configFile1`" & attrib +r `"$configFile2`""
-Write-Host "  [+] config.js y config.json generados y protegidos con solo lectura." -ForegroundColor Green
+foreach ($targetDir in $activeDirs) {
+    Write-Host "  [*] Procesando: $targetDir" -ForegroundColor Cyan
 
-# Asegurar qt.conf y plugins de plataforma para el motor Qt 5
-$qtConfPath = Join-Path $targetDir "qt.conf"
-"[Paths]`r`nPrefix=.`r`nPlugins=plugins" | Out-File -FilePath $qtConfPath -Encoding ascii -Force
-$pluginsPlatforms = Join-Path $targetDir "plugins\platforms"
-$directPlatforms = Join-Path $targetDir "platforms"
-if ((Test-Path $pluginsPlatforms) -and -not (Test-Path $directPlatforms)) {
-    Copy-Item -Path $pluginsPlatforms -Destination $directPlatforms -Recurse -Force
+    # Permisos de escritura para usuarios (requerido por SQLite y logs locales)
+    cmd.exe /c "icacls `"$targetDir`" /grant Users:(OI)(CI)F /T /C /Q 2>nul"
+    $failedSsDir = Join-Path $targetDir "failed_screenshots"
+    if (-not (Test-Path $failedSsDir)) { New-Item -ItemType Directory -Path $failedSsDir -Force | Out-Null }
+    cmd.exe /c "icacls `"$failedSsDir`" /grant Users:(OI)(CI)F /T /C /Q 2>nul"
+
+    # Limpiar archivos de bloqueo residuales
+    foreach ($lf in $lockFiles) {
+        $fPath = Join-Path $targetDir $lf
+        if (Test-Path $fPath) {
+            Remove-Item -Path $fPath -Force -ErrorAction SilentlyContinue
+        }
+    }
+
+    # Escribir config.js y config.json
+    $configsFolder = Join-Path $targetDir "configs"
+    if (-not (Test-Path $configsFolder)) { New-Item -ItemType Directory -Path $configsFolder -Force | Out-Null }
+    cmd.exe /c "icacls `"$configsFolder`" /grant Users:(OI)(CI)F /T /C /Q 2>nul"
+
+    $configFile1 = Join-Path $configsFolder "config.js"
+    $configFile2 = Join-Path $configsFolder "config.json"
+    cmd.exe /c "attrib -r `"$configFile1`" 2>nul & attrib -r `"$configFile2`" 2>nul"
+
+    [System.IO.File]::WriteAllText($configFile1, $configJson, [System.Text.Encoding]::UTF8)
+    [System.IO.File]::WriteAllText($configFile2, $configJson, [System.Text.Encoding]::UTF8)
+    cmd.exe /c "attrib +r `"$configFile1`" & attrib +r `"$configFile2`""
+    Write-Host "    [+] config.js y config.json aplicados." -ForegroundColor Green
+
+    # Asegurar plugins de plataforma Qt
+    $qtConfPath = Join-Path $targetDir "qt.conf"
+    "[Paths]`r`nPrefix=.`r`nPlugins=plugins" | Out-File -FilePath $qtConfPath -Encoding ascii -Force
+    $pluginsPlatforms = Join-Path $targetDir "plugins\platforms"
+    $directPlatforms = Join-Path $targetDir "platforms"
+    if ((Test-Path $pluginsPlatforms) -and -not (Test-Path $directPlatforms)) {
+        Copy-Item -Path $pluginsPlatforms -Destination $directPlatforms -Recurse -Force
+    }
 }
-Write-Host "  [+] Modulo de plataforma Qt (qwindowsd.dll) configurado." -ForegroundColor Green
 
-# 5. Configurar Registro de Windows para capturas y envio periodico (Ruta real Qt QSettings: Software\screen\empm)
-Write-Host "`n[4/5] Configurando politicas de monitoreo y DLP en el Registro..." -ForegroundColor Yellow
+# 5. Configurar el Registro de Windows (QSettings de Qt: screen\empm y Empmonitor)
+Write-Host "`n[4/6] Configurando Registro de Windows (QSettings y credenciales)..." -ForegroundColor Yellow
+
 $userSids = @()
 try {
     $userSids = Get-ChildItem "Registry::HKEY_USERS" -ErrorAction SilentlyContinue | 
@@ -158,16 +210,34 @@ $regRoots = @(
     "HKCU:\Software\screen\empm",
     "HKLM:\Software\screen\empm",
     "HKCU:\Software\Empmonitor",
-    "HKLM:\Software\Empmonitor"
+    "HKLM:\Software\Empmonitor",
+    "HKCU:\Software\EmpMonitor\EmpMonitor",
+    "HKLM:\Software\EmpMonitor\EmpMonitor"
 )
 
 foreach ($sid in $userSids) {
     $regRoots += "Registry::HKEY_USERS\$sid\Software\screen\empm"
     $regRoots += "Registry::HKEY_USERS\$sid\Software\Empmonitor"
+    $regRoots += "Registry::HKEY_USERS\$sid\Software\EmpMonitor\EmpMonitor"
 }
 
 foreach ($root in $regRoots) {
     try {
+        if (-not (Test-Path $root)) { New-Item -Path $root -Force | Out-Null }
+
+        # Parametros principales del motor C++/Qt
+        Set-ItemProperty -Path $root -Name "backend_base" -Value "http://$ServerHost:3001/api/v1" -Force
+        Set-ItemProperty -Path $root -Name "backend_base_login" -Value "http://$ServerHost:3004/api/v3" -Force
+        Set-ItemProperty -Path $root -Name "update_base_url" -Value "http://$ServerHost:3004/api/v3" -Force
+        Set-ItemProperty -Path $root -Name "organization_id" -Value "$OrgId" -Force
+
+        # Credenciales de autenticacion local directa
+        $authPath = "$root\auth"
+        if (-not (Test-Path $authPath)) { New-Item -Path $authPath -Force | Out-Null }
+        Set-ItemProperty -Path $authPath -Name "email" -Value $AgentEmail -Force
+        Set-ItemProperty -Path $authPath -Name "crypto_password" -Value $AgentCryptoPassword -Force
+
+        # Politicas remotas y frecuencias de envio
         $fromRemote = "$root\appSettings\from_remote"
         if (-not (Test-Path $fromRemote)) { New-Item -Path $fromRemote -Force | Out-Null }
         Set-ItemProperty -Path $fromRemote -Name "account_type" -Value "office" -Force
@@ -194,46 +264,53 @@ foreach ($root in $regRoots) {
         Set-ItemProperty -Path $features -Name "web_usage" -Value "1" -Force
     } catch {}
 }
+Write-Host "  [+] Registro configurado con endpoints, credenciales y frecuencias optimas." -ForegroundColor Green
 
-# Autoarranque con Windows (especificado en installer.iss y Tarea Programada)
-$exePath = Join-Path $targetDir "aca-agent.exe"
-if (-not (Test-Path $exePath)) { $exePath = Join-Path $targetDir "empmonitor.exe" }
+# 6. Configurar autoarranque
+$mainDir = $activeDirs[0]
+$exePath = Join-Path $mainDir "aca-agent.exe"
+if (-not (Test-Path $exePath)) { $exePath = Join-Path $mainDir "empmonitor.exe" }
+
 try {
     Set-ItemProperty -Path "HKLM:\Software\Microsoft\Windows\CurrentVersion\Run" -Name "ACAAdvisorAgent" -Value "`"$exePath`"" -Force
     cmd.exe /c "schtasks /create /tn `"ACAAdvisorAgent`" /tr `"\`"$exePath\`"`" /sc onlogon /rl highest /f 2>nul"
-    Write-Host "  [+] Inicio automatico y Tarea Programada al iniciar sesion configurados." -ForegroundColor Green
+    Write-Host "  [+] Tarea programada y clave Run configuradas." -ForegroundColor Green
 } catch {}
 
-# 6. Iniciar el ejecutable oficial
-Write-Host "`n[5/5] Iniciando el agente oficial aca-agent.exe..." -ForegroundColor Yellow
-if (Test-Path $exePath) {
-    Start-Process $exePath -WorkingDirectory $targetDir
-    Start-Sleep -Seconds 3
-    $p = Get-Process -Name "aca-agent","empmonitor" -ErrorAction SilentlyContinue
-    if ($p) {
-        Write-Host "  [OK] Agente ACA Advisor iniciado exitosamente (PID: $($p.Id -join ', '))." -ForegroundColor Green
-        $p | Select-Object Id, ProcessName, @{Name="RAM (MB)";Expression={[math]::Round($_.WS/1MB,2)}} | Format-Table -AutoSize
-    } else {
-        Write-Host "  [!] El agente fue lanzado pero no se detecta el proceso. Verifique dependencias de Qt." -ForegroundColor Yellow
-    }
+# 7. Iniciar el agente en la sesion interactiva
+Write-Host "`n[5/6] Iniciando el agente en sesion de usuario..." -ForegroundColor Yellow
+Start-Process $exePath -WorkingDirectory $mainDir
+Start-Sleep -Seconds 4
+
+$p = Get-Process -Name "aca-agent","empmonitor" -ErrorAction SilentlyContinue
+if ($p) {
+    Write-Host "  [OK] Proceso activo (PID: $($p.Id -join ', '))." -ForegroundColor Green
+    $p | Select-Object Id, ProcessName, @{Name="RAM (MB)";Expression={[math]::Round($_.WS/1MB,2)}} | Format-Table -AutoSize
 } else {
-    Write-Host "[-] No se encontro el ejecutable en $exePath" -ForegroundColor Red
+    Write-Host "  [!] El proceso no quedo activo. Verifique dependencias de Qt." -ForegroundColor Yellow
 }
 
-# Verificacion rapida de conectividad con el servidor central
-Write-Host "`n[*] Verificando comunicacion con el servidor ($ServerHost)..." -ForegroundColor Yellow
+# 8. Comprobar registros de actividad y conectividad
+Write-Host "`n[6/6] Verificando conectividad con servidor central ($ServerHost)..." -ForegroundColor Yellow
+$logPath = Join-Path $mainDir "dataLog.txt"
+if (Test-Path $logPath) {
+    Write-Host "`n--- Ultimas lineas de dataLog.txt ---" -ForegroundColor Cyan
+    Get-Content $logPath -Tail 10 -ErrorAction SilentlyContinue | Write-Host -ForegroundColor Gray
+}
+
 try {
     $t1 = Test-NetConnection -ComputerName $ServerHost -Port 3004 -WarningAction SilentlyContinue
     $t2 = Test-NetConnection -ComputerName $ServerHost -Port 3001 -WarningAction SilentlyContinue
-    if ($t1.TcpTestSucceeded -and $t2.TcpTestSucceeded) {
-        Write-Host "  [+] Conectividad confirmada con Desktop API (3004) y Logs API (3001)." -ForegroundColor Green
+    $t3 = Test-NetConnection -ComputerName $ServerHost -Port 3003 -WarningAction SilentlyContinue
+    if ($t1.TcpTestSucceeded -and $t2.TcpTestSucceeded -and $t3.TcpTestSucceeded) {
+        Write-Host "`n  [+] Comunicacion confirmada en puertos 3004 (Desktop), 3001 (Logs) y 3003 (Realtime)!" -ForegroundColor Green
     } else {
-        Write-Host "  [!] Advertencia: Alguno de los puertos (3004 o 3001) no respondio al test TCP." -ForegroundColor Yellow
+        Write-Host "`n  [!] Advertencia: Algun puerto no respondio al test TCP local." -ForegroundColor Yellow
     }
 } catch {}
 
 Write-Host "`n==========================================================" -ForegroundColor Green
-Write-Host "  CONFIGURACION COMPLETADA EXITOSAMENTE (MODO OFICIAL)  " -ForegroundColor Green
+Write-Host "       CONFIGURACION APLICADA EXITOSAMENTE               " -ForegroundColor Green
 Write-Host "==========================================================" -ForegroundColor Green
-Write-Host "El equipo DESKTOP-E6GSJ9C esta vinculado y reportando al servidor central."
+Write-Host "Equipo vinculado como: $AgentEmail"
 Write-Host "Verifique el panel web en: http://$ServerHost:8081/admin/live-monitoring"

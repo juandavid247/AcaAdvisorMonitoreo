@@ -26,9 +26,9 @@ class AuthValidator {
             organizationId: Joi.string().required(),
             username: Joi.string().required().regex(/[<>;]/, { invert: true }).error((err) => { return Common.hapijoiStringErrorMessage(err) }),
             computerName: Joi.string().required().regex(/[<>;]/, { invert: true }).error((err) => { return Common.hapijoiStringErrorMessage(err) }),
-            firstname: Joi.string().allow('').required().regex(/[<>;]/, { invert: true }).error((err) => { return Common.hapijoiStringErrorMessage(err) }),
-            lastname: Joi.string().allow('').required().regex(/[<>;]/, { invert: true }).error((err) => { return Common.hapijoiStringErrorMessage(err) }),
-            domain: Joi.string().allow('').optional(),
+            firstname: Joi.string().allow('', null).optional().regex(/[<>;]/, { invert: true }).error((err) => { return Common.hapijoiStringErrorMessage(err) }),
+            lastname: Joi.string().allow('', null).optional().regex(/[<>;]/, { invert: true }).error((err) => { return Common.hapijoiStringErrorMessage(err) }),
+            domain: Joi.string().allow('', null).optional(),
             isActiveDirectory: Joi.number().allow(0, 1).optional(),
             a_email: Joi.string().allow(null, '').optional().regex(/[<>;]/, { invert: true }).error((err) => { return Common.hapijoiStringErrorMessage(err) }),
             activeDirectoryMeta: Joi.object().optional().allow(null, {}).default({})

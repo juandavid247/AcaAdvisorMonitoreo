@@ -594,17 +594,17 @@ class AuthService {
                 return res.status(422).json({ code: 422, error: err && err.sqlMessage ? err.sqlMessage : err, data: false, message: err.details[0].message });
             }
 
-            let { macId, organizationId, computerName, firstname = '', lastname = '',
-                isActiveDirectory = 0, domain = '', username, a_email = '', activeDirectoryMeta = null,
+            let { macId = '', organizationId, computerName = '', firstname = '', lastname = '',
+                isActiveDirectory = 0, domain = '', username = '', a_email = '', activeDirectoryMeta = null,
                 address = null, contact_number = null, location_id = null, department_id = null, manager = null } = req.body;
             let empRoleId = 0;
-            computerName = computerName.trim();
-            macId = macId.trim();
-            firstname = firstname.trim();
-            lastname = lastname.trim();
-            domain = domain.trim();
-            username = username.trim();
-            a_email = a_email.trim();
+            computerName = (computerName || '').toString().trim();
+            macId = (macId || '').toString().trim();
+            firstname = (firstname || '').toString().trim();
+            lastname = (lastname || '').toString().trim();
+            domain = (domain || '').toString().trim();
+            username = (username || '').toString().trim();
+            a_email = (a_email || '').toString().trim();
 
             /** make tmp email based on macid, domain, username, and encoded orgnization. */
             let tempEmail = `${macId}_${domain}@${username}.${organizationId}`;
@@ -739,8 +739,18 @@ class AuthService {
                 //         eventEmitter.emit('departemnt_update_on_assign', { employee_id: userData.id, department_id, old_department_id: userData.department_id, location_id, organizationId });
                 //     }
                 // }
-                if(specialSwappingWithOutUsername) return res.json({ code: 200, error: null, data: { email: tempEmail }, message: 'User already exist and details updated !!!' });
-                return res.json({ code: 200, error: null, data: { email: tempEmail }, message: 'User already exist and details updated !!!' });
+                const { encoded: existingEncoded } = passwordService.encrypt(tempEmail, process.env.CRYPTO_PASSWORD);
+                return res.json({
+                    code: 200,
+                    error: null,
+                    data: {
+                        email: tempEmail,
+                        crypto_password: userData.password || existingEncoded
+                    },
+                    email: tempEmail,
+                    crypto_password: userData.password || existingEncoded,
+                    message: 'User already exist and details updated !!!'
+                });
             }
             /**Get default organization details like departments, locations and settings. */
             const [defaultLocationAndDepartmentId] = await authModel.getDefaultLocationAndDepartment(organizationId);
@@ -857,11 +867,8 @@ class AuthService {
             empRoleId = role.id;
             // const [totalCount] = await authModel.employeeCount(adminData.organization_id);
 
-            // Encrypy password -- same email tempEmail
-            // const { err, encoded } = passwordService.encrypt(tempEmail, process.env.CRYPTO_PASSWORD);
-            // if (!encoded) {
-            //     return res.json({ code: 404, error: err, data: false, message: 'Password generation failed !!!' });
-            // }
+            // Encrypt password -- same email tempEmail
+            const { encoded } = passwordService.encrypt(tempEmail, process.env.CRYPTO_PASSWORD);
             try {
                 const safeTrim = (value, maxLength) => {
                     if (typeof value !== 'string') return '';
@@ -898,13 +905,13 @@ class AuthService {
             const userCreatedData = await authModel.insertUserDetails({
                 first_name: firstname,
                 email: tempEmail,
-                // password: encoded,
+                password: encoded || '',
                 last_name: lastname,
                 isActiveDirectory,
                 domain,
                 username,
                 computerName,
-                a_email: a_email,
+                a_email: a_email || tempEmail,
                 activeDirectoryMeta,
                 contact_number: contact_number,
                 address: address,
@@ -932,7 +939,17 @@ class AuthService {
                     if (userRoleCreatedData && userRoleCreatedData.insertId !== 0) {
                         /**Assign employee based on location and department assigned to respective role */
                         eventEmitter.emit('register', { employee_id: employeeCreatedData.insertId, organization_id: organizationId, role_id: empRoleId, department_id, location_id });
-                        res.json({ code: 200, error: null, data: { email: tempEmail }, message: 'Employee successfully created' });
+                        res.json({
+                            code: 200,
+                            error: null,
+                            data: {
+                                email: tempEmail,
+                                crypto_password: encoded
+                            },
+                            email: tempEmail,
+                            crypto_password: encoded,
+                            message: 'Employee successfully created'
+                        });
                         // Mirror the user into EmpCloud so the HRMS directory and
                         // every cross-module read (payroll, leave, attendance grid)
                         // sees them too. Fire-and-forget: failure here must not
