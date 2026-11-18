@@ -286,6 +286,8 @@ services:
     restart: always
     ports:
       - "8081:80"
+    volumes:
+      - ./Frontend/public/downloads:/usr/share/nginx/html/downloads:ro
     depends_on:
       - admin
       - store-logs-api
