@@ -24,8 +24,25 @@
 // =============================================================================
 
 const express = require('express');
+const crypto = require('crypto');
 const axios = require('axios');
 const moment = require('moment-timezone');
+const rateLimit = require('express-rate-limit');
+
+const adminLoginRateLimiter = rateLimit({
+  windowMs: 5 * 60 * 1000,
+  max: 25,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { code: 429, data: null, error: 'TooManyRequests', message: 'Demasiados intentos de inicio de sesión. Intenta nuevamente en 5 minutos.' },
+});
+
+function timingSafeEqualStr(a, b) {
+  const bufA = Buffer.from(String(a || ''));
+  const bufB = Buffer.from(String(b || ''));
+  if (bufA.length !== bufB.length) return false;
+  return crypto.timingSafeEqual(bufA, bufB);
+}
 
 const authModel = require('../v3/auth/auth.model');
 const redis = require('../v3/auth/services/redis.service');
@@ -92,7 +109,7 @@ async function findAdminByEmail(email) {
 
 // ---- Route: POST /api/v1/auth/admin ---------------------------------------
 
-router.post('/admin', async (req, res) => {
+router.post('/admin', adminLoginRateLimiter, async (req, res) => {
   try {
     const { email, password } = req.body || {};
 
@@ -101,20 +118,38 @@ router.post('/admin', async (req, res) => {
     }
 
     if (process.env.AUTH_METHOD_V3 === 'true') {
-      if(password !== process.env.ADMIN_PASSWORD){
-        return validationFail(res, 'Invalid password.');
-      }
       let adminDetails;
       try {
         adminDetails = JSON.parse(process.env.ADMIN_DETAILS);
       } catch (e) {
         return validationFail(res, 'Invalid admin details configuration.');
       }
+
+      const normalizedInput = email.trim().toLowerCase();
+      const allowedIdentifiers = new Set(
+        [
+          adminDetails.email,
+          adminDetails.username,
+          ...(process.env.ADMIN_ALLOWED_EMAILS || '').split(','),
+        ]
+          .filter(Boolean)
+          .map((v) => String(v).trim().toLowerCase()),
+      );
+
+      if (
+        !allowedIdentifiers.has(normalizedInput) ||
+        !timingSafeEqualStr(password, process.env.ADMIN_PASSWORD)
+      ) {
+        return validationFail(res, 'Invalid email or password.');
+      }
+
+      const internalSecret = process.env.INTERNAL_AUTH_SECRET || process.env.SESSION_SECRET || '';
       let response = await axios.post(
         `http://127.0.0.1:${process.env.PORT}/api/v3/auth/admin`,
-        { ... adminDetails, },
+        { ...adminDetails },
+        { headers: { 'x-internal-auth': internalSecret } },
       );
-      return res.status(response.status).json({...response.data, message: 'Authenticated via EmpCloud'});
+      return res.status(response.status).json({ ...response.data, message: 'Authenticated via ACA Advisor' });
     }
 
     // 1. Authenticate against EmpCloud — never trust our own password here.

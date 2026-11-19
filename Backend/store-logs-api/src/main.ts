@@ -13,7 +13,15 @@ async function bootstrap() {
     const app = await NestFactory.create(AppModule);
 
     app.use(helmet(), compression());
-    app.enableCors();
+    const allowedOrigins = (process.env.ALLOWED_ORIGINS || '')
+        .split(',')
+        .map((o) => o.trim())
+        .filter(Boolean);
+    app.enableCors(
+        allowedOrigins.length > 0
+            ? { origin: allowedOrigins, credentials: true }
+            : undefined,
+    );
     // Timezone setting
     moment.tz.setDefault(process.env.TIMEZONE);
 
@@ -58,13 +66,15 @@ async function bootstrap() {
     // prefixing 'api' to all routes
     app.setGlobalPrefix('api');
 
-    SwaggerModule.setup('/api/v1/explorer', app, SwaggerModule.createDocument(app, new DocumentBuilder()
-        .setTitle('Emp Service Api Documentation')
-        .setDescription('The documentation contains the api docs for project EMP')
-        .setVersion('1.0.0')
-        .addBearerAuth()
-        .build(),
-    ));
+    if (process.env.ENABLE_SWAGGER === 'true') {
+        SwaggerModule.setup('/api/v1/explorer', app, SwaggerModule.createDocument(app, new DocumentBuilder()
+            .setTitle('ACA Advisor Logs API')
+            .setDescription('API documentation for ACA Advisor Store Logs Service')
+            .setVersion('3.0.3')
+            .addBearerAuth()
+            .build(),
+        ));
+    }
     await app.listen(process.env.PORT);
 }
 bootstrap();

@@ -48,9 +48,9 @@ Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{
 Name: "autostart"; Description: "Iniciar automáticamente con Windows (Recomendado)"; GroupDescription: "Configuración del servicio:"
 
 [Dirs]
-Name: "{app}"; Permissions: users-full
-Name: "{app}\configs"; Permissions: users-full
-Name: "{app}\failed_screenshots"; Permissions: users-full
+Name: "{app}\configs"; Permissions: users-readexec
+Name: "{app}\failed_screenshots"; Permissions: users-modify
+Name: "{app}\logs"; Permissions: users-modify
 
 [Files]
 ; Archivos del ejecutable (con login y estilos ACA ADVISOR S.A.S.), librerías, register.ps1 y live-stream.ps1

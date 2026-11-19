@@ -107,18 +107,23 @@ class App {
         app.use(function (req, res, next) {
             res.set({
                 'compress': true,
-                'Conenction': 'keep-alive',
+                'Connection': 'keep-alive',
                 'Keep-Alive': 'timeout=300'
             });
             next();
         });
-        //Store satatic file
+        //Store static file
         app.use(express.static(path.join(__dirname, './../public/')));
-        // egistering routes 
-        // addign swagger for the above routes
-        app.use('/api/v1/explorer',  swaggerUi.serve, (...args) => swaggerUi.setup(swaggerDocument)(...args));
-        
+        // Registering Swagger only when explicitly enabled
+        if (process.env.ENABLE_SWAGGER === 'true') {
+            app.use('/api/v1/explorer', swaggerUi.serve, (...args) => swaggerUi.setup(swaggerDocument)(...args));
+        }
+
         app.use('/api/v1', new Routes().getRouters());
+
+        app.get('/health', (req, res) => {
+            res.json({ status: 'ok', service: 'aca-advisor-productivity', timestamp: new Date().toISOString() });
+        });
 
         app.use('/api/custom/on-premise-report', (req, res) => {
             try {

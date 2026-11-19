@@ -103,12 +103,20 @@ Características del agente:
    cd AcaAdvisorMonitoreo
    ```
 
-2. **Configurar variables de entorno:**
-   Revisa y ajusta los archivos `.env` en `Backend/` y `Frontend/` así como la configuración en `docker-compose.yml` según tu entorno.
+2. **Configurar variables de entorno y secretos:**
+   Copia la plantilla segura y configura tus contraseñas/claves:
+   ```bash
+   cp .env.example .env
+   chmod 600 .env
+   ```
 
 3. **Levantar los servicios con Docker Compose:**
    ```bash
    docker compose up -d --build
+   ```
+   Para habilitar **HTTPS / WSS automático** (Caddy en puertos `80`/`443`), consulta [deploy/proxy/README_HTTPS.md](deploy/proxy/README_HTTPS.md) y levanta:
+   ```bash
+   docker compose -f docker-compose.yml -f docker-compose.tls.yml up -d
    ```
 
 4. **Verificar el estado de los contenedores:**
@@ -120,8 +128,9 @@ Características del agente:
 
 ## ➤ Respaldos y Seguridad
 
-- **Endurecimiento de puertos de base de datos:** Los puertos de base de datos se mantienen restringidos internamente para evitar exposición innecesaria.
-- **Respaldos diarios automatizados:** Scripts y almacenamiento de respaldos ubicados en `scripts/` y `backups/`.
+- **Secretos aislados fuera de Git:** Todas las credenciales de MySQL, MongoDB, Redis, JWT y panel administrador se gestionan exclusivamente en `.env` (ignorado por Git). Usa `scripts/rotate_credentials.sh` para rotar claves en vivo de forma segura.
+- **Reverse Proxy unificado y puertos endurecidos:** MySQL, MongoDB, Redis y los microservicios internos se exponen únicamente en `127.0.0.1` o red interna de Docker; las capturas locales utilizan URLs firmadas HMAC con expiración corta.
+- **Respaldos diarios automatizados y verificados:** `scripts/backup_and_cleanup.sh` respalda MySQL y MongoDB (verificando integridad `gzip`), limpia datos antiguos y soporta replicación remota vía `rclone` o `rsync`.
 
 ---
 

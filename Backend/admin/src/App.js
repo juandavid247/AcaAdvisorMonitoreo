@@ -26,6 +26,7 @@ const RoutesV3 = require('./routes/v3/modules');
 const v1AuthRouter = require('./routes/v1/auth');
 const errorHandler = require('./middleware/error');
 const ReportDeleteController = require('./routes/v3/reports/report-delete.controller');
+const { verifyScreenshotMiddleware } = require('./utils/helpers/screenshotSigner');
 
 const swaggerMiddleWare = require("./utils/swagger/swagger.auth");
 
@@ -74,21 +75,8 @@ class App {
     }
 
     addRoutesAndMiddleWares(app) {
-        // Trust Nginx proxy headers (required for rate-limit and X-Forwarded-For)
-        app.set('trust proxy', 1);
-
-        app.use(cors());
-        // app.use((req, res, next) => {
-        //     const end = res.end;
-        //     const onceUnhandledRejection = reason => errorHandler(reason, req, res);
-        //     process.once('unhandledRejection', onceUnhandledRejection);
-        //     res.end = (chunk, encoding) => {
-        //         process.removeListener('unhandledRejection', onceUnhandledRejection);
-        //         res.end = end;
-        //         res.end(chunk, encoding);
-        //     };
-        //     next();
-        // });
+        // Trust Nginx/Caddy proxy headers (required for rate-limit and X-Forwarded-For)
+        app.set('trust proxy', parseInt(process.env.TRUST_PROXY_HOPS || '1', 10));
 
         // initializing body parser (bundled with express framework)
         // for reading req body
@@ -129,17 +117,32 @@ class App {
         //         secure: true
         //     }
         // }));
-        // CORS
+        // CORS (whitelist-based when ALLOWED_ORIGINS is configured)
+        const allowedOrigins = (process.env.ALLOWED_ORIGINS || '')
+            .split(',')
+            .map((o) => o.trim())
+            .filter(Boolean);
+
         app.use(function (req, res, next) {
             const origin = req.headers.origin;
             if (origin) {
-                res.setHeader('Access-Control-Allow-Origin', origin);
-            } else {
-                res.setHeader('Access-Control-Allow-Origin', '*');
+                const isExplicitlyAllowed = allowedOrigins.includes(origin);
+                const isSameHost = (() => {
+                    try {
+                        const reqHost = (req.headers['x-forwarded-host'] || req.headers.host || '').split(':')[0];
+                        return reqHost && new URL(origin).hostname === reqHost;
+                    } catch {
+                        return false;
+                    }
+                })();
+                if (isExplicitlyAllowed || isSameHost) {
+                    res.setHeader('Access-Control-Allow-Origin', origin);
+                    res.setHeader('Vary', 'Origin');
+                    res.setHeader('Access-Control-Allow-Credentials', 'true');
+                }
             }
             res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,PATCH,DELETE,OPTIONS');
             res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization,X-Requested-With,Cache-Control,Pragma,Expires');
-            res.setHeader('Access-Control-Allow-Credentials', 'true');
             if (req.method === 'OPTIONS') return res.sendStatus(204);
             next();
         });
@@ -148,7 +151,7 @@ class App {
         app.use(function (req, res, next) {
             res.set({
                 'compress': true,
-                'Conenction': 'keep-alive',
+                'Connection': 'keep-alive',
                 'Keep-Alive': 'timeout=300'
             });
             next();
@@ -157,15 +160,19 @@ class App {
         /** routes to dowload temp folder files and delete after donwload */
         app.get('/temp/*', ReportDeleteController.deleteFileAfterDownload);
 
-        //Store satatic file
+        //Store static file
         app.use(express.static(path.join(__dirname, './../public/')));
-        app.use('/screenshots-static', express.static(process.env.SHARED_SCREENSHOTS_PATH || '/app/shared_screenshots'));
-        // egistering routes
-        // addign swagger for the above routes
-        app.use('/api/v3/explorer', swaggerUi.serve, (...args) => swaggerUi.setup(swaggerDocumentV3)(...args));
-        app.use('/api/v3/mobile/explorer', swaggerUi.serve, (...args) => swaggerUi.setup(swaggerDocumentV3Mobile)(...args));
-
-        app.use('/api/v3/docs', swaggerUi.serve, (...args) => swaggerUi.setup(swaggerDocumentV3Client)(...args));
+        app.use(
+            '/screenshots-static',
+            verifyScreenshotMiddleware,
+            express.static(process.env.SHARED_SCREENSHOTS_PATH || '/app/shared_screenshots')
+        );
+        // Registering Swagger only when explicitly enabled
+        if (process.env.ENABLE_SWAGGER === 'true') {
+            app.use('/api/v3/explorer', swaggerUi.serve, (...args) => swaggerUi.setup(swaggerDocumentV3)(...args));
+            app.use('/api/v3/mobile/explorer', swaggerUi.serve, (...args) => swaggerUi.setup(swaggerDocumentV3Mobile)(...args));
+            app.use('/api/v3/docs', swaggerUi.serve, (...args) => swaggerUi.setup(swaggerDocumentV3Client)(...args));
+        }
 
         app.use('/api/v3', new RoutesV3().getRouters());
 
@@ -184,7 +191,7 @@ class App {
         })
 
         app.get('/health', (req, res) => {
-            res.json({ status: 'ok', service: 'emp-monitor', version: '1.0.0', timestamp: new Date().toISOString() });
+            res.json({ status: 'ok', service: 'aca-advisor-admin', version: '3.0.3', timestamp: new Date().toISOString() });
         });
 
         if(!process.env.IS_ON_PREM) app.get('/', (req, res) => { res.send('success'); });

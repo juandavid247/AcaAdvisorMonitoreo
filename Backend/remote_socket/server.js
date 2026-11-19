@@ -11,6 +11,10 @@ const app = express();
 const server = http.createServer(app);
 const wss = new WebSocket.Server({ server });
 
+app.get('/health', (req, res) => {
+    res.status(200).json({ status: 'ok', service: 'aca-advisor-remote-socket', timestamp: new Date().toISOString() });
+});
+
 app.use(express.static(path.join(__dirname, 'public')));
 app.use(morgan('dev'))
 

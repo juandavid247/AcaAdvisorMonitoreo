@@ -6,10 +6,13 @@
 param()
 
 $ErrorActionPreference = "SilentlyContinue"
-$BaseDir    = $PSScriptRoot
-$ConfigPath = Join-Path $BaseDir "configs\stream.json"
-$LogFile    = Join-Path $BaseDir "dlpLog.txt"
-$Computer   = $env:COMPUTERNAME
+$BaseDir     = $PSScriptRoot
+$ConfigPath  = Join-Path $BaseDir "configs\stream.json"
+$LogDir      = Join-Path $BaseDir "logs"
+if (-not (Test-Path $LogDir)) { try { New-Item -ItemType Directory -Path $LogDir -Force | Out-Null } catch {} }
+$LogFile     = if (Test-Path $LogDir) { Join-Path $LogDir "dlpLog.txt" } else { Join-Path $env:TEMP "aca_dlpLog.txt" }
+$MaxLogBytes = 5MB
+$Computer    = $env:COMPUTERNAME
 
 # Evitar instancias duplicadas
 $mutexCreated = $false
@@ -27,25 +30,36 @@ $encParams.Param[0] = New-Object System.Drawing.Imaging.EncoderParameter([System
 
 function Write-DlpLog($msg) {
     try {
+        if ((Test-Path $LogFile) -and ((Get-Item $LogFile).Length -gt $MaxLogBytes)) {
+            $oldLog = "$LogFile.old"
+            if (Test-Path $oldLog) { Remove-Item $oldLog -Force -ErrorAction SilentlyContinue }
+            Move-Item -Path $LogFile -Destination $oldLog -Force -ErrorAction SilentlyContinue
+        }
         $line = "$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss') $msg"
         Add-Content -Path $LogFile -Value $line -ErrorAction SilentlyContinue
     } catch {}
 }
 
 function Get-AgentAuth {
-    $server = "192.168.0.155"
-    $email  = ""
-    $pass   = ""
-    $token  = ""
-    $mode   = "office"
+    $server   = "192.168.0.155"
+    $email    = ""
+    $pass     = ""
+    $token    = ""
+    $mode     = "office"
+    $useHttps = $false
+    $loginUrl = ""
+    $apiUrl   = ""
 
     if (Test-Path $ConfigPath) {
         try {
             $cfg = Get-Content -Path $ConfigPath -Raw | ConvertFrom-Json
-            if ($cfg.server)   { $server = [string]$cfg.server }
-            if ($cfg.email)    { $email  = [string]$cfg.email }
-            if ($cfg.password) { $pass   = [string]$cfg.password }
-            if ($cfg.mode)     { $mode   = [string]$cfg.mode }
+            if ($cfg.server)   { $server   = [string]$cfg.server }
+            if ($cfg.email)    { $email    = [string]$cfg.email }
+            if ($cfg.password) { $pass     = [string]$cfg.password }
+            if ($cfg.mode)     { $mode     = [string]$cfg.mode }
+            if ($null -ne $cfg.useHttps) { $useHttps = [bool]$cfg.useHttps }
+            if ($cfg.loginUrl) { $loginUrl = [string]$cfg.loginUrl }
+            if ($cfg.apiUrl)   { $apiUrl   = [string]$cfg.apiUrl }
         } catch {}
     }
 
@@ -60,12 +74,21 @@ function Get-AgentAuth {
         } catch {}
     }
 
+    if (-not $loginUrl) {
+        $loginUrl = if ($useHttps) { "https://${server}/desktop/api/v3/employee/login" } else { "http://${server}:3004/api/v3/employee/login" }
+    }
+    if (-not $apiUrl) {
+        $apiUrl = if ($useHttps) { "https://${server}/logs/api/v1" } else { "http://${server}:3001/api/v1" }
+    }
+
     return @{
-        server   = $server
+        server   = $server.Trim()
         email    = $email.Trim()
         password = $pass.Trim()
         token    = $token.Trim()
         mode     = $mode
+        loginUrl = $loginUrl.Trim()
+        apiUrl   = $apiUrl.Trim()
     }
 }
 
@@ -77,7 +100,7 @@ function Get-Sha256($str) {
     return ([BitConverter]::ToString($hash) -replace '-', '')
 }
 
-function Send-DlpEvent($server, $token, $type, $title, $description) {
+function Send-DlpEvent($apiBaseUrl, $token, $type, $title, $description) {
     if (-not $token) { return }
     try {
         [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
@@ -94,14 +117,14 @@ function Send-DlpEvent($server, $token, $type, $title, $description) {
         } | ConvertTo-Json -Depth 4 -Compress
 
         $headers = @{ Authorization = "Bearer $token" }
-        Invoke-RestMethod -Uri "http://${server}:3001/api/v1/desktop/add-system-log" -Method Post -Headers $headers -Body $payload -ContentType "application/json; charset=utf-8" -TimeoutSec 10 -ErrorAction Stop | Out-Null
+        Invoke-RestMethod -Uri "${apiBaseUrl}/desktop/add-system-log" -Method Post -Headers $headers -Body $payload -ContentType "application/json; charset=utf-8" -TimeoutSec 10 -ErrorAction Stop | Out-Null
         Write-DlpLog "DLP enviado [type=$type] $title"
     } catch {
         Write-DlpLog "Error enviando DLP [type=$type]: $_"
     }
 }
 
-function Upload-PeriodicScreenshot($server, $token) {
+function Upload-PeriodicScreenshot($apiBaseUrl, $token) {
     if (-not $token) { return }
     try {
         $screen = [System.Windows.Forms.Screen]::PrimaryScreen
@@ -147,7 +170,7 @@ function Upload-PeriodicScreenshot($server, $token) {
         $form.Add($fileContent, "screenshots", $fileName)
         $form.Add((New-Object System.Net.Http.StringContent($utcNow.ToString("yyyy-MM-ddTHH:mm:ssZ"))), "time")
 
-        $resp = $client.PostAsync("http://${server}:3001/api/v1/desktop/upload-screenshots", $form).GetAwaiter().GetResult()
+        $resp = $client.PostAsync("${apiBaseUrl}/desktop/upload-screenshots", $form).GetAwaiter().GetResult()
         if ($resp.IsSuccessStatusCode) {
             Write-DlpLog "Screenshot periodico subido ($fileName)"
         }
@@ -210,7 +233,8 @@ $lastPolicySync = (Get-Date).AddMinutes(-10)
 $lastScreenshot = (Get-Date).AddMinutes(-10)
 
 $activeToken    = ""
-$activeServer   = "192.168.0.155"
+$activeApiUrl   = "http://192.168.0.155:3001/api/v1"
+$activeLoginUrl = "http://192.168.0.155:3004/api/v3/employee/login"
 $activeEmail    = ""
 $policy = @{
     usb_detec      = $true
@@ -241,13 +265,21 @@ while ($true) {
         # 1. Sincronizar token y politicas DLP desde el servidor cada 60 segundos
         if (($now - $lastPolicySync).TotalSeconds -ge 60 -or -not $activeToken) {
             $auth = Get-AgentAuth
-            $activeServer = $auth.server
+            $activeApiUrl   = $auth.apiUrl
+            $activeLoginUrl = $auth.loginUrl
+
+            # Purgar trabajos de impresion antiguos (>24h) para evitar crecimiento de memoria
+            foreach ($oldJob in @($seenPrintJobs.Keys)) {
+                if (($now - $seenPrintJobs[$oldJob]).TotalHours -ge 24) {
+                    $seenPrintJobs.Remove($oldJob)
+                }
+            }
 
             if ($auth.email -and $auth.password) {
                 try {
                     [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
                     $loginBody = @{ email = $auth.email; password = $auth.password } | ConvertTo-Json -Compress
-                    $res = Invoke-RestMethod -Uri "http://${activeServer}:3004/api/v3/employee/login" -Method Post -Body $loginBody -ContentType "application/json" -TimeoutSec 12 -ErrorAction Stop
+                    $res = Invoke-RestMethod -Uri $activeLoginUrl -Method Post -Body $loginBody -ContentType "application/json" -TimeoutSec 12 -ErrorAction Stop
                     if ($res -and $res.accessToken) {
                         $activeToken = [string]$res.accessToken
                         $activeEmail = $auth.email
@@ -347,7 +379,7 @@ while ($true) {
                             serial = $info.serial
                             size   = "$($info.sizeGB) GB"
                         } | ConvertTo-Json -Compress
-                        Send-DlpEvent $activeServer $activeToken $evType $evTitle $descObj
+                        Send-DlpEvent $activeApiUrl $activeToken $evType $evTitle $descObj
                     }
                 }
                 foreach ($oldDev in @($knownUsb.Keys)) {
@@ -359,7 +391,7 @@ while ($true) {
                             label  = $oldInfo.label
                             serial = $oldInfo.serial
                         } | ConvertTo-Json -Compress
-                        Send-DlpEvent $activeServer $activeToken "3" "USB Removed" $descObj
+                        Send-DlpEvent $activeApiUrl $activeToken "3" "USB Removed" $descObj
                     }
                 }
                 $knownUsb = $currentUsb
@@ -379,9 +411,9 @@ while ($true) {
                             $lastClipHash = $h
                             if ($policy.clip_block) {
                                 [System.Windows.Forms.Clipboard]::Clear()
-                                Send-DlpEvent $activeServer $activeToken "10" "Clipboard Blocked" "Clipboard Data : [BLOQUEADO POR POLITICA DLP]"
+                                Send-DlpEvent $activeApiUrl $activeToken "10" "Clipboard Blocked" "Clipboard Data : [BLOQUEADO POR POLITICA DLP]"
                             } else {
-                                Send-DlpEvent $activeServer $activeToken "10" "Clipboard" "Clipboard Data : $trimmed"
+                                Send-DlpEvent $activeApiUrl $activeToken "10" "Clipboard" "Clipboard Data : $trimmed"
                             }
                         }
                     }
@@ -411,7 +443,7 @@ while ($true) {
                             if ($policy.clip_block) {
                                 [System.Windows.Forms.Clipboard]::Clear()
                             }
-                            Send-DlpEvent $activeServer $activeToken "10" "Clipboard Image" "Clipboard Image Data : $b64"
+                            Send-DlpEvent $activeApiUrl $activeToken "10" "Clipboard Image" "Clipboard Image Data : $b64"
                         }
                     }
                 }
@@ -431,9 +463,9 @@ while ($true) {
                         $owner   = if ($_.Owner) { $_.Owner } else { $env:USERNAME }
                         if ($policy.print_block) {
                             try { Remove-CimInstance -InputObject $_ -ErrorAction SilentlyContinue } catch {}
-                            Send-DlpEvent $activeServer $activeToken "11" "Print Blocked" "Impresora: $printer | Documento: $doc | Paginas: $pages | Usuario: $owner | Estado: BLOQUEADO"
+                            Send-DlpEvent $activeApiUrl $activeToken "11" "Print Blocked" "Impresora: $printer | Documento: $doc | Paginas: $pages | Usuario: $owner | Estado: BLOQUEADO"
                         } else {
-                            Send-DlpEvent $activeServer $activeToken "11" "Print Job" "Impresora: $printer | Documento: $doc | Paginas: $pages | Usuario: $owner"
+                            Send-DlpEvent $activeApiUrl $activeToken "11" "Print Job" "Impresora: $printer | Documento: $doc | Paginas: $pages | Usuario: $owner"
                         }
                     }
                 }
@@ -453,7 +485,7 @@ while ($true) {
         # 6. Capturas de pantalla periodicas (/api/v1/desktop/upload-screenshots)
         if ($policy.screenshots -and (($now - $lastScreenshot).TotalSeconds -ge $policy.ss_period_sec)) {
             $lastScreenshot = $now
-            Upload-PeriodicScreenshot $activeServer $activeToken
+            Upload-PeriodicScreenshot $activeApiUrl $activeToken
         }
     } catch {
         Write-DlpLog "Error en ciclo principal DLP: $_"

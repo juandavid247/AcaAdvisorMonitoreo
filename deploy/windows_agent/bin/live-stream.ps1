@@ -2,31 +2,51 @@
 param()
 
 $ErrorActionPreference = "SilentlyContinue"
+
+# Evitar instancias duplicadas (Mutex global)
+$mutexCreated = $false
+$mutex = New-Object System.Threading.Mutex($true, "Global\ACAAdvisorLiveStream", [ref]$mutexCreated)
+if (-not $mutexCreated) { exit 0 }
+
 $BaseDir    = $PSScriptRoot
 $ConfigPath = Join-Path $BaseDir "configs\stream.json"
-$LogFile    = Join-Path $BaseDir "streamLog.txt"
+$LogDir     = Join-Path $BaseDir "logs"
+if (-not (Test-Path $LogDir)) { try { New-Item -ItemType Directory -Path $LogDir -Force | Out-Null } catch {} }
+$LogFile    = if (Test-Path $LogDir) { Join-Path $LogDir "streamLog.txt" } else { Join-Path $env:TEMP "aca_streamLog.txt" }
+$MaxLogBytes = 5MB
 
 function Write-StreamLog($msg) {
     try {
+        if ((Test-Path $LogFile) -and ((Get-Item $LogFile).Length -gt $MaxLogBytes)) {
+            $oldLog = "$LogFile.old"
+            if (Test-Path $oldLog) { Remove-Item $oldLog -Force -ErrorAction SilentlyContinue }
+            Move-Item -Path $LogFile -Destination $oldLog -Force -ErrorAction SilentlyContinue
+        }
         $line = "$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss') $msg"
         Add-Content -Path $LogFile -Value $line -ErrorAction SilentlyContinue
     } catch {}
 }
 
 function Get-AgentAuth {
-    $server = "192.168.0.155"
-    $email  = ""
-    $pass   = ""
-    $token  = ""
-    $mode   = "office"
+    $server      = "192.168.0.155"
+    $email       = ""
+    $pass        = ""
+    $token       = ""
+    $mode        = "office"
+    $useHttps    = $false
+    $loginUrl    = ""
+    $realtimeUrl = ""
 
     if (Test-Path $ConfigPath) {
         try {
             $cfg = Get-Content -Path $ConfigPath -Raw | ConvertFrom-Json
-            if ($cfg.server)   { $server = $cfg.server }
-            if ($cfg.email)    { $email  = $cfg.email }
-            if ($cfg.password) { $pass   = $cfg.password }
-            if ($cfg.mode)     { $mode   = $cfg.mode }
+            if ($cfg.server)      { $server      = [string]$cfg.server }
+            if ($cfg.email)       { $email       = [string]$cfg.email }
+            if ($cfg.password)    { $pass        = [string]$cfg.password }
+            if ($cfg.mode)        { $mode        = [string]$cfg.mode }
+            if ($null -ne $cfg.useHttps) { $useHttps = [bool]$cfg.useHttps }
+            if ($cfg.loginUrl)    { $loginUrl    = [string]$cfg.loginUrl }
+            if ($cfg.realtimeUrl) { $realtimeUrl = [string]$cfg.realtimeUrl }
         } catch {}
     }
 
@@ -52,12 +72,21 @@ function Get-AgentAuth {
         } catch {}
     }
 
+    if (-not $loginUrl) {
+        $loginUrl = if ($useHttps) { "https://${server}/desktop/api/v3/employee/login" } else { "http://${server}:3004/api/v3/employee/login" }
+    }
+    if (-not $realtimeUrl) {
+        $realtimeUrl = if ($useHttps) { "wss://${server}/ws/realtime" } else { "ws://${server}:3003" }
+    }
+
     return @{
-        server   = $server
-        email    = $email.Trim()
-        password = $pass.Trim()
-        token    = $token.Trim()
-        mode     = $mode
+        server      = $server.Trim()
+        email       = $email.Trim()
+        password    = $pass.Trim()
+        token       = $token.Trim()
+        mode        = $mode
+        loginUrl    = $loginUrl.Trim()
+        realtimeUrl = $realtimeUrl.Trim()
     }
 }
 
@@ -125,10 +154,11 @@ Write-StreamLog "=== Iniciando ACA Advisor Live Screen Module ==="
 while ($true) {
     $ws = $null
     try {
-        $auth = Get-AgentAuth
-        $ServerHost = $auth.server
+        $auth       = Get-AgentAuth
         $AgentEmail = $auth.email
         $AgentPass  = $auth.password
+        $LoginUrl   = $auth.loginUrl
+        $WsUrl      = $auth.realtimeUrl
         $token      = ""
 
         if (-not $AgentEmail -and -not $auth.token) {
@@ -142,7 +172,7 @@ while ($true) {
         if ($AgentEmail -and $AgentPass) {
             try {
                 $loginBody = @{ email = $AgentEmail; password = $AgentPass } | ConvertTo-Json -Compress
-                $loginRes = Invoke-RestMethod -Uri "http://${ServerHost}:3004/api/v3/employee/login" -Method Post -Body $loginBody -ContentType "application/json" -TimeoutSec 15 -ErrorAction Stop
+                $loginRes = Invoke-RestMethod -Uri $LoginUrl -Method Post -Body $loginBody -ContentType "application/json" -TimeoutSec 15 -ErrorAction Stop
                 if ($loginRes -and $loginRes.accessToken) {
                     $token = $loginRes.accessToken
                 }
@@ -162,12 +192,12 @@ while ($true) {
         }
 
         $ws = New-Object System.Net.WebSockets.ClientWebSocket
-        $wsUri = New-Object System.Uri("ws://${ServerHost}:3003")
+        $wsUri = New-Object System.Uri($WsUrl)
         $ws.ConnectAsync($wsUri, [System.Threading.CancellationToken]::None).GetAwaiter().GetResult()
 
         $authMsg = @{ type = "agent_auth"; token = $token } | ConvertTo-Json -Compress
         Send-WsText $ws $authMsg
-        Write-StreamLog "Conectado y autenticado en ws://${ServerHost}:3003 ($AgentEmail)"
+        Write-StreamLog "Conectado y autenticado en $WsUrl ($AgentEmail)"
 
         $recvBuf = New-Object byte[] 8192
         $recvSeg = New-Object System.ArraySegment[byte](,$recvBuf)

@@ -1,0 +1,29 @@
+# ==============================================================================
+# ACA ADVISOR S.A.S. - Caddyfile Reverse Proxy con HTTPS / WSS
+#
+# Configura en .env:
+#   - Dominio publico (Let's Encrypt automatico):
+#       SITE_ADDRESS=monitoreo.acaadvisor.com
+#       TLS_MODE=admin@acaadvisor.com
+#   - Red local (IP o dominio .local con CA interna automatica):
+#       SITE_ADDRESS=https://192.168.0.155
+#       TLS_MODE=internal
+# ==============================================================================
+
+{$SITE_ADDRESS} {
+	tls {$TLS_MODE}
+
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "SAMEORIGIN"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		-Server
+	}
+
+	reverse_proxy frontend:80 {
+		header_up Host {http.request.host}
+		header_up X-Real-IP {http.request.remote.host}
+		header_up X-Forwarded-Proto {http.request.scheme}
+	}
+}

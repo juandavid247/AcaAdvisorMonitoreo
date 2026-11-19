@@ -1,10 +1,8 @@
 import axios from 'axios';
 import { useAuthStore } from '../lib/auth-store';
 
-const HOST = typeof window !== 'undefined' && window.location?.hostname ? window.location.hostname : 'localhost';
-
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || `http://${HOST}:3000/api/v3`,
+  baseURL: import.meta.env.VITE_API_URL || '/api/v3',
   timeout: 15000,
 });
 

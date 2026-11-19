@@ -1,10 +1,11 @@
 import axios from 'axios';
 
-const HOST = typeof window !== 'undefined' && window.location?.hostname ? window.location.hostname : 'localhost';
-const BASE_URL = import.meta.env.VITE_API_URL || `http://${HOST}:3000/api/v3`;
-const SOCKET_BASE_URL = import.meta.env.VITE_SOCKET_URL || `ws://${HOST}:3003`;
-const NOTIFICATION_SOCKET_URL = import.meta.env.VITE_NOTIFICATION_SOCKET_URL || `ws://${HOST}:8080/notification`;
-const BACKEND_V4_URL = import.meta.env.VITE_BACKEND_V4_URL || `http://${HOST}:3000`;
+const WS_PROTO = typeof window !== 'undefined' && window.location?.protocol === 'https:' ? 'wss:' : 'ws:';
+const WS_HOST = typeof window !== 'undefined' && window.location?.host ? window.location.host : 'localhost:8081';
+const BASE_URL = import.meta.env.VITE_API_URL || '/api/v3';
+const SOCKET_BASE_URL = import.meta.env.VITE_SOCKET_URL || `${WS_PROTO}//${WS_HOST}/ws/realtime`;
+const NOTIFICATION_SOCKET_URL = import.meta.env.VITE_NOTIFICATION_SOCKET_URL || `${WS_PROTO}//${WS_HOST}/ws/notification`;
+const BACKEND_V4_URL = import.meta.env.VITE_BACKEND_V4_URL || '';
 
 const authInstance = axios.create({
     baseURL: BASE_URL,

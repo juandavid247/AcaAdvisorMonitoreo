@@ -2157,6 +2157,7 @@ class UserActivity {
             if (!credsData) {
                 const fs = require('fs');
                 const path = require('path');
+                const { signScreenshotUrl } = require('../../../utils/helpers/screenshotSigner');
                 const sharedBase = process.env.SHARED_SCREENSHOTS_PATH || '/app/shared_screenshots';
                 const { totalHour, dayFolders } = CloudStorageServices.parseHourRange({ from, to, date, timezone: userData.timezone });
                 const baseUrl = `${req.protocol}://${req.get('host')}/screenshots-static`;
@@ -2177,7 +2178,7 @@ class UserActivity {
                         const hourKey = localHourMatch ? localHourMatch[1] : rawName.slice(0, 2);
                         if (!bucketsMap.has(hourKey)) continue;
                         const fileStat = fs.statSync(path.join(dirPath, fileName));
-                        const link = `${baseUrl}/${encodeURIComponent(userData.email)}/${encodeURIComponent(dayFolder)}/${encodeURIComponent(fileName)}`;
+                        const link = signScreenshotUrl(baseUrl, userData.email, dayFolder, fileName);
                         bucketsMap.get(hourKey).s.push({
                             id: fileName,
                             actual: rawName,

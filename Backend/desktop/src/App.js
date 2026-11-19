@@ -65,6 +65,7 @@ class App {
      * @memberof App
      */
     addRoutesAndMiddleWares(app) {
+        app.set('trust proxy', parseInt(process.env.TRUST_PROXY_HOPS || '1', 10));
 
         /**
          * initializing body parser (bundled with express framework)
@@ -165,15 +166,21 @@ class App {
 
         app.use(timeout.handler(options));
         /**
-         * Adding swagger for the routes
+         * Adding swagger for the routes only when explicitly enabled
          */
-        app.use('/api/v3/explorer',  swaggerUi.serve, (...args) => swaggerUi.setup(swaggerSpecV3)(...args));
+        if (process.env.ENABLE_SWAGGER === 'true') {
+            app.use('/api/v3/explorer', swaggerUi.serve, (...args) => swaggerUi.setup(swaggerSpecV3)(...args));
+        }
 
         /**
          * Registering routes
          */
         app.use('/api/v3', new V3Routes().getRouters());
         app.use(require('./middleware/error'));
+
+        app.get('/health', (req, res) => {
+            res.json({ status: 'ok', service: 'aca-advisor-desktop', timestamp: new Date().toISOString() });
+        });
 
         app.use('/api/custom/on-premise-desktop', (req, res) => {
             try {

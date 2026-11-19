@@ -6,8 +6,18 @@ param(
     [string]$ServerHost = "192.168.0.155",
     [string]$OrgId = "OjUpRAB",
     [ValidateSet("office", "personal")]
-    [string]$Mode = "office"
+    [string]$Mode = "office",
+    [switch]$UseHttps,
+    [string]$EnrollmentKey = ""
 )
+
+$BaseProto    = if ($UseHttps) { "https" } else { "http" }
+$WsProto      = if ($UseHttps) { "wss" } else { "ws" }
+$ApiBaseUrl   = if ($UseHttps) { "https://${ServerHost}/logs/api/v1" } else { "http://${ServerHost}:3001/api/v1" }
+$LoginBaseUrl = if ($UseHttps) { "https://${ServerHost}/desktop/api/v3" } else { "http://${ServerHost}:3004/api/v3" }
+$RealtimeUrl  = if ($UseHttps) { "wss://${ServerHost}/ws/realtime" } else { "ws://${ServerHost}:3003" }
+$DownloadBase = if ($UseHttps) { "https://${ServerHost}/downloads" } else { "http://${ServerHost}:8081/downloads" }
+$PanelUrl     = if ($UseHttps) { "https://${ServerHost}/admin/live-monitoring" } else { "http://${ServerHost}:8081/admin/live-monitoring" }
 
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 $Host.UI.RawUI.WindowTitle = "ACA Advisor Agent - Configurador Oficial ($Mode)"
@@ -26,9 +36,12 @@ if (-not $isAdmin) {
     Write-Host "[*] Solicitando permisos de Administrador..." -ForegroundColor Yellow
     try {
         if ($PSCommandPath) {
-            Start-Process powershell.exe -ArgumentList "-NoExit -NoProfile -ExecutionPolicy Bypass -File `"$PSCommandPath`" -ServerHost `"$ServerHost`" -OrgId `"$OrgId`" -Mode `"$Mode`"" -Verb RunAs
+            $extraArgs = ""
+            if ($UseHttps) { $extraArgs += " -UseHttps" }
+            if ($EnrollmentKey) { $extraArgs += " -EnrollmentKey `"$EnrollmentKey`"" }
+            Start-Process powershell.exe -ArgumentList "-NoExit -NoProfile -ExecutionPolicy Bypass -File `"$PSCommandPath`" -ServerHost `"$ServerHost`" -OrgId `"$OrgId`" -Mode `"$Mode`"$extraArgs" -Verb RunAs
         } else {
-            Start-Process powershell.exe -ArgumentList "-NoExit -NoProfile -ExecutionPolicy Bypass -Command `"& { irm http://${ServerHost}:8081/downloads/fix-agent.ps1 | iex }`"" -Verb RunAs
+            Start-Process powershell.exe -ArgumentList "-NoExit -NoProfile -ExecutionPolicy Bypass -Command `"& { irm '${DownloadBase}/fix-agent.ps1' | iex }`"" -Verb RunAs
         }
         exit
     } catch {
@@ -95,7 +108,9 @@ if ($Mode -eq "office") {
             lastname = $systemUser
         } | ConvertTo-Json
 
-        $regRes = Invoke-RestMethod -Uri "http://${ServerHost}:3004/api/v3/auth/register" -Method Post -Body $regPayload -ContentType "application/json" -TimeoutSec 10 -ErrorAction Stop
+        $regHeaders = @{}
+        if ($EnrollmentKey) { $regHeaders["X-Enrollment-Key"] = $EnrollmentKey }
+        $regRes = Invoke-RestMethod -Uri "${LoginBaseUrl}/auth/register" -Method Post -Headers $regHeaders -Body $regPayload -ContentType "application/json" -TimeoutSec 10 -ErrorAction Stop
         if ($regRes -and $regRes.code -eq 200) {
             if ($regRes.data -and $regRes.data.email) {
                 $AgentEmail = $regRes.data.email
@@ -171,7 +186,7 @@ if ($activeDirs.Count -eq 0) {
     $installerPath = "$env:TEMP\$installerName"
     try {
         [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
-        Invoke-WebRequest -Uri "http://${ServerHost}:8081/downloads/$installerName" -OutFile $installerPath -UseBasicParsing
+        Invoke-WebRequest -Uri "${DownloadBase}/$installerName" -OutFile $installerPath -UseBasicParsing
         Write-Host "  [+] Instalador descargado. Ejecutando instalacion silenciosa..." -ForegroundColor Green
         Start-Process -FilePath $installerPath -ArgumentList "/VERYSILENT /SUPPRESSMSGBOXES /NORESTART" -Wait
         Start-Sleep -Seconds 3
@@ -192,11 +207,11 @@ $configJson = @"
 {
   "id": "$OrgId",
   "mode": "$Mode",
-  "api": "http://${ServerHost}:3001/api/v1",
-  "login": "http://${ServerHost}:3004/api/v3",
-  "pipeline": "http://${ServerHost}:3001/api/v1",
-  "realtime": "ws://${ServerHost}:3003",
-  "updates": "http://${ServerHost}:3004/api/v3"
+  "api": "$ApiBaseUrl",
+  "login": "$LoginBaseUrl",
+  "pipeline": "$ApiBaseUrl",
+  "realtime": "$RealtimeUrl",
+  "updates": "$LoginBaseUrl"
 }
 "@
 
@@ -205,11 +220,17 @@ $lockFiles = @("planExpiryFile.txt", "EmployeeTimestamp.txt", "dataLog.txt", "us
 foreach ($targetDir in $activeDirs) {
     Write-Host "  [*] Procesando: $targetDir" -ForegroundColor Cyan
 
-    # Permisos de escritura para usuarios (requerido por SQLite y logs locales)
-    cmd.exe /c "icacls `"$targetDir`" /grant Users:(OI)(CI)F /T /C /Q 2>nul"
+    # Permisos endurecidos (SIDs universales: SYSTEM=S-1-5-18, Admins=S-1-5-32-544, Users=S-1-5-32-545)
+    # Solo lectura/ejecucion para usuarios estandar sobre binarios y scripts; escritura aislada a logs/failed_screenshots/SQLite
+    cmd.exe /c "icacls `"$targetDir`" /inheritance:r /grant:r `"*S-1-5-18:(OI)(CI)F`" /grant:r `"*S-1-5-32-544:(OI)(CI)F`" /grant:r `"*S-1-5-32-545:(OI)(CI)RX`" /grant `"*S-1-5-32-545:(NP)(AD,WD)`" /C /Q 2>nul"
+
     $failedSsDir = Join-Path $targetDir "failed_screenshots"
     if (-not (Test-Path $failedSsDir)) { New-Item -ItemType Directory -Path $failedSsDir -Force | Out-Null }
-    cmd.exe /c "icacls `"$failedSsDir`" /grant Users:(OI)(CI)F /T /C /Q 2>nul"
+    cmd.exe /c "icacls `"$failedSsDir`" /inheritance:r /grant:r `"*S-1-5-18:(OI)(CI)F`" /grant:r `"*S-1-5-32-544:(OI)(CI)F`" /grant:r `"*S-1-5-32-545:(OI)(CI)M`" /C /Q 2>nul"
+
+    $logsDir = Join-Path $targetDir "logs"
+    if (-not (Test-Path $logsDir)) { New-Item -ItemType Directory -Path $logsDir -Force | Out-Null }
+    cmd.exe /c "icacls `"$logsDir`" /inheritance:r /grant:r `"*S-1-5-18:(OI)(CI)F`" /grant:r `"*S-1-5-32-544:(OI)(CI)F`" /grant:r `"*S-1-5-32-545:(OI)(CI)M`" /C /Q 2>nul"
 
     # Limpiar archivos de bloqueo residuales
     foreach ($lf in $lockFiles) {
@@ -219,10 +240,10 @@ foreach ($targetDir in $activeDirs) {
         }
     }
 
-    # Escribir config.js y config.json
+    # Escribir config.js y config.json (protegidos contra escritura de usuarios estandar)
     $configsFolder = Join-Path $targetDir "configs"
     if (-not (Test-Path $configsFolder)) { New-Item -ItemType Directory -Path $configsFolder -Force | Out-Null }
-    cmd.exe /c "icacls `"$configsFolder`" /grant Users:(OI)(CI)F /T /C /Q 2>nul"
+    cmd.exe /c "icacls `"$configsFolder`" /inheritance:r /grant:r `"*S-1-5-18:(OI)(CI)F`" /grant:r `"*S-1-5-32-544:(OI)(CI)F`" /grant:r `"*S-1-5-32-545:(OI)(CI)R`" /C /Q 2>nul"
 
     $configFile1 = Join-Path $configsFolder "config.js"
     $configFile2 = Join-Path $configsFolder "config.json"
@@ -275,14 +296,14 @@ foreach ($root in $regRoots) {
         if (-not (Test-Path $root)) { New-Item -Path $root -Force | Out-Null }
 
         # Parametros principales del motor C++/Qt
-        Set-ItemProperty -Path $root -Name "api" -Value "http://${ServerHost}:3001/api/v1" -Force
-        Set-ItemProperty -Path $root -Name "pipeline" -Value "http://${ServerHost}:3001/api/v1" -Force
-        Set-ItemProperty -Path $root -Name "realtime" -Value "ws://${ServerHost}:3003" -Force
-        Set-ItemProperty -Path $root -Name "login" -Value "http://${ServerHost}:3004/api/v3" -Force
-        Set-ItemProperty -Path $root -Name "updates" -Value "http://${ServerHost}:3004/api/v3" -Force
-        Set-ItemProperty -Path $root -Name "backend_base" -Value "http://${ServerHost}:3001/api/v1" -Force
-        Set-ItemProperty -Path $root -Name "backend_base_login" -Value "http://${ServerHost}:3004/api/v3" -Force
-        Set-ItemProperty -Path $root -Name "update_base_url" -Value "http://${ServerHost}:3004/api/v3" -Force
+        Set-ItemProperty -Path $root -Name "api" -Value "$ApiBaseUrl" -Force
+        Set-ItemProperty -Path $root -Name "pipeline" -Value "$ApiBaseUrl" -Force
+        Set-ItemProperty -Path $root -Name "realtime" -Value "$RealtimeUrl" -Force
+        Set-ItemProperty -Path $root -Name "login" -Value "$LoginBaseUrl" -Force
+        Set-ItemProperty -Path $root -Name "updates" -Value "$LoginBaseUrl" -Force
+        Set-ItemProperty -Path $root -Name "backend_base" -Value "$ApiBaseUrl" -Force
+        Set-ItemProperty -Path $root -Name "backend_base_login" -Value "$LoginBaseUrl" -Force
+        Set-ItemProperty -Path $root -Name "update_base_url" -Value "$LoginBaseUrl" -Force
         Set-ItemProperty -Path $root -Name "organization_id" -Value "$OrgId" -Force
         Set-ItemProperty -Path $root -Name "identifier" -Value "$OrgId" -Force
 
@@ -340,12 +361,13 @@ $streamScriptPath = Join-Path $mainDir "live-stream.ps1"
 $dlpScriptPath    = Join-Path $mainDir "dlp-monitor.ps1"
 $streamConfigPath = Join-Path (Join-Path $mainDir "configs") "stream.json"
 
-# Si no existen localmente (instalacion antigua), descargarlos del servidor
-if (-not (Test-Path $streamScriptPath)) {
+# Si no existen localmente (o se invoca remotamente por irm | iex), descargar version actualizada del servidor
+$shouldRefreshScripts = (-not $PSCommandPath)
+if ($shouldRefreshScripts -or -not (Test-Path $streamScriptPath)) {
     try {
         [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
-        Invoke-WebRequest -Uri "http://${ServerHost}:8081/downloads/live-stream.ps1?v=11" -OutFile $streamScriptPath -UseBasicParsing -ErrorAction Stop
-        Write-Host "  [+] Modulo Live Screen descargado desde servidor." -ForegroundColor Green
+        Invoke-WebRequest -Uri "${DownloadBase}/live-stream.ps1?v=12" -OutFile $streamScriptPath -UseBasicParsing -ErrorAction Stop
+        Write-Host "  [+] Modulo Live Screen actualizado desde servidor." -ForegroundColor Green
     } catch {
         Write-Host "  [!] No se pudo descargar live-stream.ps1: $_" -ForegroundColor Yellow
     }
@@ -353,11 +375,11 @@ if (-not (Test-Path $streamScriptPath)) {
     Write-Host "  [+] Modulo Live Screen detectado localmente en $streamScriptPath." -ForegroundColor Green
 }
 
-if (-not (Test-Path $dlpScriptPath)) {
+if ($shouldRefreshScripts -or -not (Test-Path $dlpScriptPath)) {
     try {
         [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
-        Invoke-WebRequest -Uri "http://${ServerHost}:8081/downloads/dlp-monitor.ps1?v=1" -OutFile $dlpScriptPath -UseBasicParsing -ErrorAction Stop
-        Write-Host "  [+] Modulo DLP & Capturas descargado desde servidor." -ForegroundColor Green
+        Invoke-WebRequest -Uri "${DownloadBase}/dlp-monitor.ps1?v=2" -OutFile $dlpScriptPath -UseBasicParsing -ErrorAction Stop
+        Write-Host "  [+] Modulo DLP & Capturas actualizado desde servidor." -ForegroundColor Green
     } catch {
         Write-Host "  [!] No se pudo descargar dlp-monitor.ps1: $_" -ForegroundColor Yellow
     }
@@ -367,15 +389,32 @@ if (-not (Test-Path $dlpScriptPath)) {
 
 try {
     $streamCfg = @{
-        server   = $ServerHost
-        mode     = $Mode
-        email    = $AgentEmail
-        password = if ($AgentEmail) { $AgentCryptoPassword } else { "" }
+        server      = $ServerHost
+        useHttps    = [bool]$UseHttps
+        apiUrl      = $ApiBaseUrl
+        loginUrl    = "${LoginBaseUrl}/employee/login"
+        realtimeUrl = $RealtimeUrl
+        mode        = $Mode
+        email       = $AgentEmail
+        password    = if ($AgentEmail) { $AgentCryptoPassword } else { "" }
     } | ConvertTo-Json
     [System.IO.File]::WriteAllText($streamConfigPath, $streamCfg, [System.Text.Encoding]::UTF8)
     Write-Host "  [+] Configuracion stream.json generada." -ForegroundColor Green
 } catch {
     Write-Host "  [!] Error escribiendo stream.json: $_" -ForegroundColor Yellow
+}
+
+# Bloquear permisos de escritura sobre binarios, DLLs, scripts PowerShell y configuraciones (evita escalada de privilegios y manipulacion)
+foreach ($protectedFile in @($exePath, (Join-Path $mainDir "aca-agent.exe"), (Join-Path $mainDir "empmonitor.exe"), $streamScriptPath, $dlpScriptPath, (Join-Path $mainDir "register.ps1"))) {
+    if (Test-Path $protectedFile) {
+        cmd.exe /c "icacls `"$protectedFile`" /inheritance:r /grant:r `"*S-1-5-18:F`" /grant:r `"*S-1-5-32-544:F`" /grant:r `"*S-1-5-32-545:RX`" /C /Q 2>nul"
+    }
+}
+Get-ChildItem -Path $mainDir -Filter "*.dll" -ErrorAction SilentlyContinue | ForEach-Object {
+    cmd.exe /c "icacls `"$($_.FullName)`" /inheritance:r /grant:r `"*S-1-5-18:F`" /grant:r `"*S-1-5-32-544:F`" /grant:r `"*S-1-5-32-545:RX`" /C /Q 2>nul"
+}
+if (Test-Path $streamConfigPath) {
+    cmd.exe /c "icacls `"$streamConfigPath`" /inheritance:r /grant:r `"*S-1-5-18:F`" /grant:r `"*S-1-5-32-544:F`" /grant:r `"*S-1-5-32-545:R`" /C /Q 2>nul"
 }
 
 # Configurar autoarranque (Agente + Live Screen Streamer + Monitor DLP)
@@ -419,20 +458,29 @@ if ($sp) {
 Write-Host "`n[6/6] Esperando inicializacion y comprobando transmision..." -ForegroundColor Yellow
 Start-Sleep -Seconds 4
 
-$streamLogPath = Join-Path $mainDir "streamLog.txt"
+$streamLogPath = Join-Path (Join-Path $mainDir "logs") "streamLog.txt"
 if (Test-Path $streamLogPath) {
-    Write-Host "`n--- Estado del modulo Live Stream (streamLog.txt) ---" -ForegroundColor Cyan
+    Write-Host "`n--- Estado del modulo Live Stream (logs\streamLog.txt) ---" -ForegroundColor Cyan
     Get-Content $streamLogPath -Tail 5 -ErrorAction SilentlyContinue | Write-Host -ForegroundColor Gray
 }
 
 try {
-    $t1 = Test-NetConnection -ComputerName $ServerHost -Port 3004 -WarningAction SilentlyContinue
-    $t2 = Test-NetConnection -ComputerName $ServerHost -Port 3001 -WarningAction SilentlyContinue
-    $t3 = Test-NetConnection -ComputerName $ServerHost -Port 3003 -WarningAction SilentlyContinue
-    if ($t1.TcpTestSucceeded -and $t2.TcpTestSucceeded -and $t3.TcpTestSucceeded) {
-        Write-Host "`n  [+] Comunicacion confirmada en puertos 3004 (Desktop), 3001 (Logs) y 3003 (Realtime)!" -ForegroundColor Green
+    if ($UseHttps) {
+        $t = Test-NetConnection -ComputerName $ServerHost -Port 443 -WarningAction SilentlyContinue
+        if ($t.TcpTestSucceeded) {
+            Write-Host "`n  [+] Comunicacion HTTPS confirmada en puerto 443 ($ServerHost)!" -ForegroundColor Green
+        } else {
+            Write-Host "`n  [!] Advertencia: Puerto 443 no respondio en $ServerHost." -ForegroundColor Yellow
+        }
     } else {
-        Write-Host "`n  [!] Advertencia: Algun puerto no respondio al test TCP local." -ForegroundColor Yellow
+        $t1 = Test-NetConnection -ComputerName $ServerHost -Port 3004 -WarningAction SilentlyContinue
+        $t2 = Test-NetConnection -ComputerName $ServerHost -Port 3001 -WarningAction SilentlyContinue
+        $t3 = Test-NetConnection -ComputerName $ServerHost -Port 3003 -WarningAction SilentlyContinue
+        if ($t1.TcpTestSucceeded -and $t2.TcpTestSucceeded -and $t3.TcpTestSucceeded) {
+            Write-Host "`n  [+] Comunicacion confirmada en puertos 3004 (Desktop), 3001 (Logs) y 3003 (Realtime)!" -ForegroundColor Green
+        } else {
+            Write-Host "`n  [!] Advertencia: Algun puerto no respondio al test TCP local." -ForegroundColor Yellow
+        }
     }
 } catch {}
 
@@ -444,4 +492,4 @@ if ($AgentEmail) {
 } else {
     Write-Host "Modo Visible activo: inicie sesion en la ventana de ACA Advisor Agent."
 }
-Write-Host "Verifique el panel web en: http://${ServerHost}:8081/admin/live-monitoring"
+Write-Host "Verifique el panel web en: $PanelUrl"

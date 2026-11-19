@@ -1,0 +1,42 @@
+# ==============================================================================
+# ACA ADVISOR S.A.S. - Overlay HTTPS / WSS con Caddy (TLS Automatico)
+# Uso:
+#   docker compose -f docker-compose.yml -f docker-compose.tls.yml up -d
+# ==============================================================================
+
+services:
+  admin:
+    environment:
+      TRUST_PROXY_HOPS: "2"
+
+  desktop:
+    environment:
+      TRUST_PROXY_HOPS: "2"
+
+  caddy:
+    image: caddy:2-alpine
+    container_name: emp_caddy_tls
+    restart: always
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    mem_limit: 256m
+    environment:
+      SITE_ADDRESS: "${SITE_ADDRESS:-https://192.168.0.155}"
+      TLS_MODE: "${TLS_MODE:-internal}"
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./deploy/proxy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      frontend:
+        condition: service_healthy
+
+volumes:
+  caddy_data:
+  caddy_config:

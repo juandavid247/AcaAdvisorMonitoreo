@@ -1,45 +1,72 @@
-version: '3.8'
+x-logging: &default-logging
+  driver: "json-file"
+  options:
+    max-size: "10m"
+    max-file: "3"
 
 services:
   mysql:
     image: mysql:8.0
     container_name: emp_mysql
     restart: always
+    logging: *default-logging
+    mem_limit: 1536m
     environment:
-      MYSQL_ROOT_PASSWORD: rootpassword
-      MYSQL_DATABASE: empmonitor
-      MYSQL_USER: empuser
-      MYSQL_PASSWORD: emppassword
+      MYSQL_ROOT_PASSWORD: "${MYSQL_ROOT_PASSWORD:?MYSQL_ROOT_PASSWORD is required}"
+      MYSQL_DATABASE: "${MYSQL_DATABASE:-empmonitor}"
+      MYSQL_USER: "${MYSQL_USER:-empuser}"
+      MYSQL_PASSWORD: "${MYSQL_PASSWORD:?MYSQL_PASSWORD is required}"
     ports:
       - "127.0.0.1:3306:3306"
     volumes:
       - mysql_data:/var/lib/mysql
       - ./Backend/migrations/emp-monitor.sql:/docker-entrypoint-initdb.d/emp-monitor.sql:ro
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-prootpassword"]
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -u root -p\"$$MYSQL_ROOT_PASSWORD\""]
       interval: 10s
       timeout: 5s
       retries: 5
+      start_period: 20s
 
   mongodb:
     image: mongo:6.0
     container_name: emp_mongodb
     restart: always
+    logging: *default-logging
+    mem_limit: 1536m
     environment:
-      MONGO_INITDB_ROOT_USERNAME: empuser
-      MONGO_INITDB_ROOT_PASSWORD: emppassword
-      MONGO_INITDB_DATABASE: empmonitor
+      MONGO_INITDB_ROOT_USERNAME: "${MONGO_USER:-empuser}"
+      MONGO_INITDB_ROOT_PASSWORD: "${MONGO_PASSWORD:?MONGO_PASSWORD is required}"
+      MONGO_INITDB_DATABASE: "${MONGO_DATABASE:-empmonitor}"
     ports:
       - "127.0.0.1:27017:27017"
     volumes:
       - mongo_data:/data/db
+    healthcheck:
+      test: ["CMD-SHELL", "mongosh --quiet --eval \"db.adminCommand('ping').ok\" | grep -q 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
 
   redis:
     image: redis:7-alpine
     container_name: emp_redis
     restart: always
+    logging: *default-logging
+    mem_limit: 512m
+    environment:
+      REDIS_PASSWORD: "${REDIS_PASSWORD:?REDIS_PASSWORD is required}"
+    command: ["sh", "-c", "exec redis-server --requirepass \"$$REDIS_PASSWORD\" --appendonly yes"]
     ports:
       - "127.0.0.1:6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -a \"$$REDIS_PASSWORD\" --no-auth-warning ping | grep -q PONG"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   admin:
     build:
@@ -47,26 +74,35 @@ services:
       dockerfile: ./Backend/admin/Dockerfile
     container_name: emp_admin
     restart: always
+    logging: *default-logging
+    mem_limit: 1024m
     environment:
       NODE_ENV: production
       PORT: 3000
       VERSION: V3
       IS_DEBUGGING: "false"
+      TRUST_PROXY_HOPS: "${TRUST_PROXY_HOPS:-1}"
+      ENABLE_SWAGGER: "${ENABLE_SWAGGER:-false}"
+      ALLOWED_ORIGINS: "${ALLOWED_ORIGINS:-}"
       BUCKET_NAME: "empmonitor-storage"
       BUCKET_NAME_BIOMETRICS: "empmonitor-biometrics"
       AUTH_METHOD_V3: "true"
-      ADMIN_PASSWORD: "admin123"
-      ADMIN_DETAILS: '{"name":"Admin User","first_name":"Admin","last_name":"User","email":"admin@empmonitor.local","username":"admin","product_id":1,"total_allowed_user_count":500,"begin_date":"2024-01-01","expire_date":"2030-12-31","timezone":"America/Bogota"}'
+      ADMIN_PASSWORD: "${ADMIN_PASSWORD:?ADMIN_PASSWORD is required}"
+      ADMIN_ALLOWED_EMAILS: "${ADMIN_ALLOWED_EMAILS:-}"
+      ADMIN_DETAILS: '${ADMIN_DETAILS:?ADMIN_DETAILS is required}'
+      INTERNAL_AUTH_SECRET: "${INTERNAL_AUTH_SECRET:?INTERNAL_AUTH_SECRET is required}"
+      SCREENSHOT_SIGNING_SECRET: "${SCREENSHOT_SIGNING_SECRET:?SCREENSHOT_SIGNING_SECRET is required}"
+      SCREENSHOT_URL_TTL_SECONDS: "${SCREENSHOT_URL_TTL_SECONDS:-3600}"
       MYSQL_HOST: mysql
-      MYSQL_USERNAME: empuser
-      MYSQL_PASSWORD: emppassword
-      MYSQL_DBNAME: empmonitor
-      MONGO_URI: mongodb://empuser:emppassword@mongodb:27017/empmonitor?authSource=admin
+      MYSQL_USERNAME: "${MYSQL_USER:-empuser}"
+      MYSQL_PASSWORD: "${MYSQL_PASSWORD:?MYSQL_PASSWORD is required}"
+      MYSQL_DBNAME: "${MYSQL_DATABASE:-empmonitor}"
+      MONGO_URI: "mongodb://${MONGO_USER:-empuser}:${MONGO_PASSWORD:?MONGO_PASSWORD is required}@mongodb:27017/${MONGO_DATABASE:-empmonitor}?authSource=admin"
       REDIS_HOST: redis
-      REDIS_PASSWORD: ""
-      SESSION_SECRET: empmonitor_session_secret_2026
-      JWT_ACCESS_TOKEN_SECRET: empmonitor_secret_jwt_access_2026
-      CRYPTO_PASSWORD: empmonitor_crypto_secure_password
+      REDIS_PASSWORD: "${REDIS_PASSWORD:?REDIS_PASSWORD is required}"
+      SESSION_SECRET: "${SESSION_SECRET:?SESSION_SECRET is required}"
+      JWT_ACCESS_TOKEN_SECRET: "${JWT_ACCESS_TOKEN_SECRET:?JWT_ACCESS_TOKEN_SECRET is required}"
+      CRYPTO_PASSWORD: "${CRYPTO_PASSWORD:?CRYPTO_PASSWORD is required}"
       ORGANIZATION_ID: "0"
       IP_MASKING_ORG_ID: "0"
       ORGANIZATION_ID_WITH_OPTIONAL_USER_EMAIL: "0"
@@ -77,17 +113,22 @@ services:
       WEB_SOCKET_SERVER_URL: http://web-socket-server:8080
       SHARED_SCREENSHOTS_PATH: /app/shared_screenshots
     ports:
-      - "3000:3000"
-      - "5002:3000"
+      - "127.0.0.1:3000:3000"
     volumes:
       - screenshots_data:/app/shared_screenshots
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3000/health | grep -q ok"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
     depends_on:
       mysql:
         condition: service_healthy
       mongodb:
-        condition: service_started
+        condition: service_healthy
       redis:
-        condition: service_started
+        condition: service_healthy
 
   store-logs-api:
     build:
@@ -95,27 +136,31 @@ services:
       dockerfile: ./Backend/store-logs-api/Dockerfile
     container_name: emp_store_logs_api
     restart: always
+    logging: *default-logging
+    mem_limit: 1024m
     environment:
       NODE_ENV: production
       PORT: 3001
       IS_DEBUGGING: "false"
+      ENABLE_SWAGGER: "${ENABLE_SWAGGER:-false}"
+      ALLOWED_ORIGINS: "${ALLOWED_ORIGINS:-}"
       ENABLE_VALIDATION: "false"
       TIMEZONE_SEQUELIZE: "+00:00"
       TIMEZONE: "UTC"
-      MONGO_URI: mongodb://empuser:emppassword@mongodb:27017/empmonitor?authSource=admin
-      MONGO_DB_NAME: empmonitor
-      MONGO_USER: empuser
-      MONGO_PASSWORD: emppassword
+      MONGO_URI: "mongodb://${MONGO_USER:-empuser}:${MONGO_PASSWORD:?MONGO_PASSWORD is required}@mongodb:27017/${MONGO_DATABASE:-empmonitor}?authSource=admin"
+      MONGO_DB_NAME: "${MONGO_DATABASE:-empmonitor}"
+      MONGO_USER: "${MONGO_USER:-empuser}"
+      MONGO_PASSWORD: "${MONGO_PASSWORD:?MONGO_PASSWORD is required}"
       MYSQL_HOST: mysql
-      MYSQL_USERNAME: empuser
-      MYSQL_PASSWORD: emppassword
-      MYSQL_DATABASE: empmonitor
+      MYSQL_USERNAME: "${MYSQL_USER:-empuser}"
+      MYSQL_PASSWORD: "${MYSQL_PASSWORD:?MYSQL_PASSWORD is required}"
+      MYSQL_DATABASE: "${MYSQL_DATABASE:-empmonitor}"
       REDIS_HOST: redis
-      REDIS_PASSWORD: ""
-      JWT_ACCESS_TOKEN_SECRET: empmonitor_secret_jwt_access_2026
-      JWT_REFRESH_TOKEN_SECRET: empmonitor_secret_jwt_refresh_2026
+      REDIS_PASSWORD: "${REDIS_PASSWORD:?REDIS_PASSWORD is required}"
+      JWT_ACCESS_TOKEN_SECRET: "${JWT_ACCESS_TOKEN_SECRET:?JWT_ACCESS_TOKEN_SECRET is required}"
+      JWT_REFRESH_TOKEN_SECRET: "${JWT_REFRESH_TOKEN_SECRET:?JWT_REFRESH_TOKEN_SECRET is required}"
       JWT_EXPIRY: "10h"
-      CRYPTO_PASSWORD: empmonitor_crypto_secure_password
+      CRYPTO_PASSWORD: "${CRYPTO_PASSWORD:?CRYPTO_PASSWORD is required}"
       WEB_SOCKET_SERVER_URL: http://web-socket-server:8080
       UPLOAD_PATH: "./public/uploads"
       SS_UPLOAD_PATH: "./public/uploads"
@@ -127,13 +172,19 @@ services:
       - "3001:3001"
     volumes:
       - screenshots_data:/app/shared_screenshots
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3001/api >/dev/null 2>&1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 25s
     depends_on:
       mysql:
         condition: service_healthy
       mongodb:
-        condition: service_started
+        condition: service_healthy
       redis:
-        condition: service_started
+        condition: service_healthy
 
   productivity-report:
     build:
@@ -141,47 +192,63 @@ services:
       dockerfile: ./Backend/productivity_report/Dockerfile
     container_name: emp_productivity_report
     restart: always
+    logging: *default-logging
+    mem_limit: 768m
     environment:
       NODE_ENV: production
       PORT: 3005
       VERSION: V1
       IS_DEBUGGING: "false"
+      ENABLE_SWAGGER: "${ENABLE_SWAGGER:-false}"
       MYSQL_HOST: mysql
-      MYSQL_USERNAME: empuser
-      MYSQL_PASSWORD: emppassword
-      MYSQL_DBNAME: empmonitor
+      MYSQL_USERNAME: "${MYSQL_USER:-empuser}"
+      MYSQL_PASSWORD: "${MYSQL_PASSWORD:?MYSQL_PASSWORD is required}"
+      MYSQL_DBNAME: "${MYSQL_DATABASE:-empmonitor}"
       MYSQL_POOL_CONNECTION_LIMIT: 10
-      MONGO_URI: mongodb://empuser:emppassword@mongodb:27017/empmonitor?authSource=admin
+      MONGO_URI: "mongodb://${MONGO_USER:-empuser}:${MONGO_PASSWORD:?MONGO_PASSWORD is required}@mongodb:27017/${MONGO_DATABASE:-empmonitor}?authSource=admin"
       REDIS_HOST: redis
-      REDIS_PASSWORD: ""
-      SESSION_SECRET: empmonitor_session_secret_2026
-      JWT_ACCESS_TOKEN_SECRET: empmonitor_secret_jwt_access_2026
-      JWT_SECRET: empmonitor_secret_jwt_access_2026
-      CRYPTO_PASSWORD: empmonitor_crypto_secure_password
+      REDIS_PASSWORD: "${REDIS_PASSWORD:?REDIS_PASSWORD is required}"
+      SESSION_SECRET: "${SESSION_SECRET:?SESSION_SECRET is required}"
+      JWT_ACCESS_TOKEN_SECRET: "${JWT_ACCESS_TOKEN_SECRET:?JWT_ACCESS_TOKEN_SECRET is required}"
+      JWT_SECRET: "${JWT_ACCESS_TOKEN_SECRET:?JWT_ACCESS_TOKEN_SECRET is required}"
+      CRYPTO_PASSWORD: "${CRYPTO_PASSWORD:?CRYPTO_PASSWORD is required}"
       REALTIME_SOCKET_URL: ws://realtime:3003
     ports:
-      - "3005:3005"
+      - "127.0.0.1:3005:3005"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3005/health | grep -q ok"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
     depends_on:
       mysql:
         condition: service_healthy
       mongodb:
-        condition: service_started
+        condition: service_healthy
       redis:
-        condition: service_started
+        condition: service_healthy
 
   web-socket-server:
     build:
       context: ./Backend/web-socket-server
     container_name: emp_websocket_server
     restart: always
+    logging: *default-logging
+    mem_limit: 512m
     environment:
       NODE_ENV: production
       PORT: 8080
       NOTIFICATION_PREFIX: notification
-      JWT_ACCESS_TOKEN_SECRET: empmonitor_secret_jwt_access_2026
-      CRYPTO_PASSWORD: empmonitor_crypto_secure_password
+      JWT_ACCESS_TOKEN_SECRET: "${JWT_ACCESS_TOKEN_SECRET:?JWT_ACCESS_TOKEN_SECRET is required}"
+      CRYPTO_PASSWORD: "${CRYPTO_PASSWORD:?CRYPTO_PASSWORD is required}"
     ports:
-      - "8080:8080"
+      - "127.0.0.1:8080:8080"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8080/api/custom/on-premise-socket | grep -q Success"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
 
   remote_socket:
     build:
@@ -189,41 +256,60 @@ services:
       dockerfile: ./Backend/remote_socket/Dockerfile
     container_name: emp_remote_socket
     restart: always
+    logging: *default-logging
+    mem_limit: 512m
     environment:
       NODE_ENV: production
       PORT: 3002
       REDIS_HOST: redis
-      REDIS_PASSWORD: ""
-      JWT_ACCESS_TOKEN_SECRET: empmonitor_secret_jwt_access_2026
-      JWT_REFRESH_TOKEN_SECRET: empmonitor_secret_jwt_refresh_2026
-      CRYPTO_PASSWORD: empmonitor_crypto_secure_password
+      REDIS_PASSWORD: "${REDIS_PASSWORD:?REDIS_PASSWORD is required}"
+      JWT_ACCESS_TOKEN_SECRET: "${JWT_ACCESS_TOKEN_SECRET:?JWT_ACCESS_TOKEN_SECRET is required}"
+      JWT_REFRESH_TOKEN_SECRET: "${JWT_REFRESH_TOKEN_SECRET:?JWT_REFRESH_TOKEN_SECRET is required}"
+      CRYPTO_PASSWORD: "${CRYPTO_PASSWORD:?CRYPTO_PASSWORD is required}"
     ports:
-      - "3002:3002"
+      - "127.0.0.1:3002:3002"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3002/health | grep -q ok"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
     depends_on:
-      - redis
+      redis:
+        condition: service_healthy
 
   realtime:
     build:
       context: ./Backend/realtime
     container_name: emp_realtime
     restart: always
+    logging: *default-logging
+    mem_limit: 768m
     environment:
       NODE_ENV: production
       PORT: 3003
       REDIS_HOST: redis
+      REDIS_PORT: "6379"
       REDIS_HOST_SUBSCRIBER: redis
       REDIS_HOST_PUBLISHER: redis
-      REDIS_PASSWORD: ""
-      JWT_ACCESS_TOKEN_SECRET: empmonitor_secret_jwt_access_2026
-      JWT_REFRESH_TOKEN_SECRET: empmonitor_secret_jwt_refresh_2026
-      CRYPTO_PASSWORD: empmonitor_crypto_secure_password
+      REDIS_PASSWORD: "${REDIS_PASSWORD:?REDIS_PASSWORD is required}"
+      REDIS_PASSWORD_SUBSCRIBER: "${REDIS_PASSWORD:?REDIS_PASSWORD is required}"
+      REDIS_PASSWORD_PUBLISHER: "${REDIS_PASSWORD:?REDIS_PASSWORD is required}"
+      JWT_ACCESS_TOKEN_SECRET: "${JWT_ACCESS_TOKEN_SECRET:?JWT_ACCESS_TOKEN_SECRET is required}"
+      JWT_REFRESH_TOKEN_SECRET: "${JWT_REFRESH_TOKEN_SECRET:?JWT_REFRESH_TOKEN_SECRET is required}"
+      CRYPTO_PASSWORD: "${CRYPTO_PASSWORD:?CRYPTO_PASSWORD is required}"
       SHARED_SCREENSHOTS_PATH: "/app/shared_screenshots"
     ports:
       - "3003:3003"
     volumes:
       - screenshots_data:/app/shared_screenshots:ro
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3003/rt | grep -q true"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
     depends_on:
-      - redis
+      redis:
+        condition: service_healthy
 
   desktop:
     build:
@@ -231,24 +317,30 @@ services:
       dockerfile: ./Backend/desktop/Dockerfile
     container_name: emp_desktop
     restart: always
+    logging: *default-logging
+    mem_limit: 1024m
     environment:
       NODE_ENV: production
       PORT: 3004
       VERSION: V3
       IS_DEBUGGING: "false"
+      TRUST_PROXY_HOPS: "${TRUST_PROXY_HOPS:-1}"
+      ENABLE_SWAGGER: "${ENABLE_SWAGGER:-false}"
+      AUTH_RATE_LIMIT_MAX: "${AUTH_RATE_LIMIT_MAX:-60}"
+      AGENT_ENROLLMENT_KEY: "${AGENT_ENROLLMENT_KEY:-}"
       MYSQL_HOST: mysql
-      MYSQL_USERNAME: empuser
-      MYSQL_PASSWORD: emppassword
-      MYSQL_DBNAME: empmonitor
+      MYSQL_USERNAME: "${MYSQL_USER:-empuser}"
+      MYSQL_PASSWORD: "${MYSQL_PASSWORD:?MYSQL_PASSWORD is required}"
+      MYSQL_DBNAME: "${MYSQL_DATABASE:-empmonitor}"
       MYSQL_POOL_CONNECTION_LIMIT: 10
-      MONGO_URI: mongodb://empuser:emppassword@mongodb:27017/empmonitor?authSource=admin
+      MONGO_URI: "mongodb://${MONGO_USER:-empuser}:${MONGO_PASSWORD:?MONGO_PASSWORD is required}@mongodb:27017/${MONGO_DATABASE:-empmonitor}?authSource=admin"
       REDIS_HOST: redis
-      REDIS_PASSWORD: ""
-      SESSION_SECRET: empmonitor_session_secret_2026
-      JWT_ACCESS_TOKEN_SECRET: empmonitor_secret_jwt_access_2026
-      JWT_REFRESH_TOKEN_SECRET: empmonitor_secret_jwt_refresh_2026
-      JWT_SECRET: empmonitor_secret_jwt_access_2026
-      CRYPTO_PASSWORD: empmonitor_crypto_secure_password
+      REDIS_PASSWORD: "${REDIS_PASSWORD:?REDIS_PASSWORD is required}"
+      SESSION_SECRET: "${SESSION_SECRET:?SESSION_SECRET is required}"
+      JWT_ACCESS_TOKEN_SECRET: "${JWT_ACCESS_TOKEN_SECRET:?JWT_ACCESS_TOKEN_SECRET is required}"
+      JWT_REFRESH_TOKEN_SECRET: "${JWT_REFRESH_TOKEN_SECRET:?JWT_REFRESH_TOKEN_SECRET is required}"
+      JWT_SECRET: "${JWT_ACCESS_TOKEN_SECRET:?JWT_ACCESS_TOKEN_SECRET is required}"
+      CRYPTO_PASSWORD: "${CRYPTO_PASSWORD:?CRYPTO_PASSWORD is required}"
       SHORTNER_DEFAULT_ADDED_VALUE: "1000000000000"
       ENABLE_NEWRELIC: "false"
       WEB_SOCKET_SERVER_URL: http://web-socket-server:8080
@@ -270,29 +362,52 @@ services:
       PLAN_CACHE_INTERVAL: "3600"
     ports:
       - "3004:3004"
-      - "5004:3004"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3004/health | grep -q ok"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
     depends_on:
       mysql:
         condition: service_healthy
       mongodb:
-        condition: service_started
+        condition: service_healthy
       redis:
-        condition: service_started
+        condition: service_healthy
 
   frontend:
     build:
       context: ./Frontend
     container_name: emp_frontend
     restart: always
+    logging: *default-logging
+    mem_limit: 256m
     ports:
       - "8081:80"
     volumes:
       - ./Frontend/public/downloads:/usr/share/nginx/html/downloads:ro
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:80/ >/dev/null 2>&1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
     depends_on:
-      - admin
-      - store-logs-api
+      admin:
+        condition: service_healthy
+      store-logs-api:
+        condition: service_healthy
+      desktop:
+        condition: service_healthy
+      realtime:
+        condition: service_healthy
+      remote_socket:
+        condition: service_healthy
+      web-socket-server:
+        condition: service_healthy
 
 volumes:
   mysql_data:
   mongo_data:
+  redis_data:
   screenshots_data:
