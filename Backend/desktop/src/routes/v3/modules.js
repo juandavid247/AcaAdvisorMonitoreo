@@ -24,6 +24,7 @@ class Routes {
 
     core() {
         this.myRoutes.use('/', new openModule().getRouters());
+        this.myRoutes.use('/', new authModule().getRouters());
         this.myRoutes.use('/auth', new authModule().getRouters());
         this.myRoutes.use('/authenticate', new authModule().getRouters());
         this.myRoutes.use('/employee', new authModule().getRouters());

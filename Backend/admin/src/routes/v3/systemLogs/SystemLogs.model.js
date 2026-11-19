@@ -226,7 +226,7 @@ class SystemLogsModel {
 				$lte: endStr
 			},
 		};
-		if(type?.length) query.type = { $in: type};
+		if(type?.length) query.type = { $in: type.map(String) };
 		if (search) {
 
 			query = {
@@ -271,7 +271,7 @@ class SystemLogsModel {
 				]
 			}
 		}
-		if(type?.length) query.type = { $in: type};
+		if(type?.length) query.type = { $in: type.map(String) };
 		return EmpSystemLogsModel.countDocuments(query)
 	}
 

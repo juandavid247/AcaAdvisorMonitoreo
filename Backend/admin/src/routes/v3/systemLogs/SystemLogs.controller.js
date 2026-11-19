@@ -122,7 +122,13 @@ class SystemLogsController {
 		try {
 			let searchEmpData = []
 			let { organization_id, role_id, role, language, timezone, employee_id: manager_id, } = req.decoded;
-			if(req.query.type) req.query.type =  req?.query?.type?.split(',');
+			// Normalize snake_case query params sent by Frontend DLP pages
+			if (req.query.location_id !== undefined) { req.query.locationId = req.query.location_id; delete req.query.location_id; }
+			if (req.query.department_id !== undefined) { req.query.departmentId = req.query.department_id; delete req.query.department_id; }
+			if (req.query.search_text !== undefined) { req.query.search = req.query.search_text; delete req.query.search_text; }
+			if (req.query.sort_name !== undefined) { req.query.sortColumn = req.query.sort_name; delete req.query.sort_name; }
+			if (req.query.sort_order !== undefined) { req.query.sortOrder = req.query.sort_order; delete req.query.sort_order; }
+			if (req.query.type && typeof req.query.type === 'string') req.query.type = req.query.type.split(',');
 			let { employee_id, startDate, endDate, offset, limit, sortColumn, sortOrder, search, non_admin_id, type,
 				...queries } = await SystemLogsValidator.getSystemLogsValidation().validateAsync(req.query,);
 
@@ -167,8 +173,8 @@ class SystemLogsController {
 			if (_.isEmpty(systemLogsData)) {
 				return sendResponse(
 					res,
-					400,
-					null,
+					200,
+					{ totalDocs: 0, offset, limit, docs: [] },
 					timesheetMessages.find((x) => x.id === '3')[language] ||
 					timesheetMessages.find((x) => x.id === '3')['en'],
 					null,

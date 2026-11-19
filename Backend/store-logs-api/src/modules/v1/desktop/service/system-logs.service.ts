@@ -75,15 +75,15 @@ export class SystemLogsService {
                 }
                 logs.push({
                     title,
-                    type,
+                    type: type !== undefined && type !== null ? String(type) : '',
                     employee_id: employee_id,
                     organization_id: organization_id,
-                    computer,
-                    duration: moment.duration(moment(dataId).diff(moment(dataId))),
-                    description,
+                    computer: computer || 'Windows-PC',
+                    duration: 0,
+                    description: description || '',
                     start: dataId,
                     end: dataId,
-                    date: this.getDate(dataId, timezone),
+                    date: this.getDate(dataId, timezone || 'America/Bogota'),
                 });
             }
 

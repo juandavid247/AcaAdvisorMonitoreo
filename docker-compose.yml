@@ -11,7 +11,7 @@ services:
       MYSQL_USER: empuser
       MYSQL_PASSWORD: emppassword
     ports:
-      - "3306:3306"
+      - "127.0.0.1:3306:3306"
     volumes:
       - mysql_data:/var/lib/mysql
       - ./Backend/migrations/emp-monitor.sql:/docker-entrypoint-initdb.d/emp-monitor.sql:ro
@@ -30,7 +30,7 @@ services:
       MONGO_INITDB_ROOT_PASSWORD: emppassword
       MONGO_INITDB_DATABASE: empmonitor
     ports:
-      - "27017:27017"
+      - "127.0.0.1:27017:27017"
     volumes:
       - mongo_data:/data/db
 
@@ -39,7 +39,7 @@ services:
     container_name: emp_redis
     restart: always
     ports:
-      - "6379:6379"
+      - "127.0.0.1:6379:6379"
 
   admin:
     build:

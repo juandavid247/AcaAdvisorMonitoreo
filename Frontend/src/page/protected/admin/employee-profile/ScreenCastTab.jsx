@@ -250,7 +250,7 @@ export default function ScreenCastTab({ employee }) {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
       };
-      img.src = `data:image/png;base64,${s.image}`;
+      img.src = s.image.startsWith("data:") ? s.image : `data:image/png;base64,${s.image}`;
     });
   }, [attachCanvasEvents]);
 

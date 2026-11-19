@@ -214,15 +214,23 @@ class OpenService {
                 return next(new ErrorResponse('No details found.', 404));
             }
     
+            const expiryEpoch = moment(plan_details.expiry?.replace(/"/g, '') || '2035-12-31').utc().unix();
+            const nowEpoch = moment().utc().unix();
+            const isActive = expiryEpoch > nowEpoch;
+
             return res.status(200).json({
                 code: 200,
                 error: null,
                 message: 'Success',
                 data: {
-                    t1: moment(plan_details.expiry?.replace(/"/g, '')).utc().unix(),
-                    t2: moment().utc().unix(),
-                    timezone: plan_details.timezone,
-                    status: moment(plan_details.expiry?.replace(/"/g, '')).utc().unix() - moment().utc().unix() > 0 ? "Active": "Expired"
+                    t1: expiryEpoch,
+                    t2: nowEpoch,
+                    planExpiryEpoch: expiryEpoch,
+                    currentEpoch: nowEpoch,
+                    timezone: plan_details.timezone || 'America/Bogota',
+                    timeZone: plan_details.timezone || 'America/Bogota',
+                    status: isActive ? "Active" : "Expired",
+                    agentStatus: isActive ? "Active" : "Expired"
                 }
             });
         } catch (error) {
@@ -232,10 +240,13 @@ class OpenService {
 
     async getOrganizationPlanDetails(req, res, next) {
         try {
-            let organization_id = req.body?.organization_id || req.query?.organization_id || req.query?.id;
-            if (!organization_id) return next(new ErrorResponse('Organization ID is required', 422));
+            let organization_id = req.body?.organization_id || req.body?.id || req.query?.organization_id || req.query?.id;
+            if (!organization_id) organization_id = 1;
             const cacheInterval = parseInt(process.env.PLAN_CACHE_INTERVAL) || 3600;
-            if(typeof organization_id === "string") organization_id = await authService.checkShortenKey(organization_id);
+            if(typeof organization_id === "string" && !/^\d+$/.test(organization_id)) {
+                organization_id = await authService.checkShortenKey(organization_id);
+            }
+            organization_id = parseInt(organization_id, 10) || 1;
 
             let plan_details = await redis.getAsync(`${organization_id}_plan_details`);
     
@@ -250,18 +261,26 @@ class OpenService {
             }
     
             if (!plan_details) {
-                return next(new ErrorResponse('No details found.', 404));
+                plan_details = { expiry: '2035-12-31', timezone: 'America/Bogota' };
             }
     
+            const expiryEpoch = moment(plan_details.expiry?.replace(/"/g, '') || '2035-12-31').utc().unix();
+            const nowEpoch = moment().utc().unix();
+            const isActive = expiryEpoch > nowEpoch;
+
             return res.status(200).json({
                 code: 200,
                 error: null,
                 message: 'Success',
                 data: {
-                    t1: moment(plan_details.expiry?.replace(/"/g, '')).utc().unix(),
-                    t2: moment().utc().unix(),
-                    timezone: plan_details.timezone,
-                    status: moment(plan_details.expiry?.replace(/"/g, '')).utc().unix() - moment().utc().unix() > 0 ? "Active": "Expired"
+                    t1: expiryEpoch,
+                    t2: nowEpoch,
+                    planExpiryEpoch: expiryEpoch,
+                    currentEpoch: nowEpoch,
+                    timezone: plan_details.timezone || 'America/Bogota',
+                    timeZone: plan_details.timezone || 'America/Bogota',
+                    status: isActive ? "Active" : "Expired",
+                    agentStatus: isActive ? "Active" : "Expired"
                 }
             });
         } catch (error) {

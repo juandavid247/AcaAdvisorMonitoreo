@@ -4,7 +4,7 @@
 ; ==============================================================================
 
 #define MyAppName "ACA Advisor Agent"
-#define MyAppVersion "3.0.2"
+#define MyAppVersion "3.0.3"
 #define MyAppPublisher "ACA ADVISOR S.A.S."
 #define MyAppURL "https://acaadvisor.com"
 #define MyAppExeName "aca-agent.exe"
@@ -67,12 +67,12 @@ Name: "{group}\Desinstalar {#MyAppName}"; Filename: "{uninstallexe}"
 Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: desktopicon; IconFilename: "{app}\aca-advisor.ico"
 
 [Registry]
-; Inicio automático en arranque de Windows
+; Inicio automático en arranque de Windows (Agente + Módulo Live Stream + Módulo DLP)
 Root: HKLM; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: string; ValueName: "ACAAdvisorAgent"; ValueData: """{app}\{#MyAppExeName}"""; Flags: uninsdeletevalue; Tasks: autostart
+Root: HKLM; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: string; ValueName: "ACAAdvisorLiveStream"; ValueData: "powershell.exe -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File ""{app}\live-stream.ps1"""; Flags: uninsdeletevalue; Tasks: autostart
+Root: HKLM; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: string; ValueName: "ACAAdvisorDLP"; ValueData: "powershell.exe -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -STA -File ""{app}\dlp-monitor.ps1"""; Flags: uninsdeletevalue; Tasks: autostart
 
-[Run]
-; Iniciar la aplicación al finalizar
-Filename: "{app}\{#MyAppExeName}"; Description: "{cm:LaunchProgram,{#StringChange(MyAppName, '&', '&&')}}"; Flags: nowait postinstall skipifsilent
+; El lanzamiento de aca-agent.exe y live-stream.ps1 lo gestiona register.ps1 al finalizar ssPostInstall
 
 [Code]
 var
@@ -150,20 +150,57 @@ begin
     RegDeleteKeyIncludingSubkeys(HKCU, 'Software\screen\empm');
     RegDeleteKeyIncludingSubkeys(HKLM, 'Software\screen\empm');
 
+    // Escribir endpoints principales y credenciales en la ruta nativa de QSettings (Software\screen\empm)
+    RegWriteStringValue(HKCU, 'Software\screen\empm', 'api', 'http://' + ServerHost + ':3001/api/v1');
+    RegWriteStringValue(HKLM, 'Software\screen\empm', 'api', 'http://' + ServerHost + ':3001/api/v1');
+    RegWriteStringValue(HKCU, 'Software\screen\empm', 'pipeline', 'http://' + ServerHost + ':3001/api/v1');
+    RegWriteStringValue(HKLM, 'Software\screen\empm', 'pipeline', 'http://' + ServerHost + ':3001/api/v1');
+    RegWriteStringValue(HKCU, 'Software\screen\empm', 'realtime', 'ws://' + ServerHost + ':3003');
+    RegWriteStringValue(HKLM, 'Software\screen\empm', 'realtime', 'ws://' + ServerHost + ':3003');
+    RegWriteStringValue(HKCU, 'Software\screen\empm', 'login', 'http://' + ServerHost + ':3004/api/v3');
+    RegWriteStringValue(HKLM, 'Software\screen\empm', 'login', 'http://' + ServerHost + ':3004/api/v3');
+    RegWriteStringValue(HKCU, 'Software\screen\empm', 'updates', 'http://' + ServerHost + ':3004/api/v3');
+    RegWriteStringValue(HKLM, 'Software\screen\empm', 'updates', 'http://' + ServerHost + ':3004/api/v3');
+    RegWriteStringValue(HKCU, 'Software\screen\empm', 'backend_base', 'http://' + ServerHost + ':3001/api/v1');
+    RegWriteStringValue(HKLM, 'Software\screen\empm', 'backend_base', 'http://' + ServerHost + ':3001/api/v1');
+    RegWriteStringValue(HKCU, 'Software\screen\empm', 'backend_base_login', 'http://' + ServerHost + ':3004/api/v3');
+    RegWriteStringValue(HKLM, 'Software\screen\empm', 'backend_base_login', 'http://' + ServerHost + ':3004/api/v3');
+    RegWriteStringValue(HKCU, 'Software\screen\empm', 'update_base_url', 'http://' + ServerHost + ':3004/api/v3');
+    RegWriteStringValue(HKLM, 'Software\screen\empm', 'update_base_url', 'http://' + ServerHost + ':3004/api/v3');
+    RegWriteStringValue(HKCU, 'Software\screen\empm', 'organization_id', OrgId);
+    RegWriteStringValue(HKLM, 'Software\screen\empm', 'organization_id', OrgId);
+    RegWriteStringValue(HKCU, 'Software\screen\empm', 'identifier', OrgId);
+    RegWriteStringValue(HKLM, 'Software\screen\empm', 'identifier', OrgId);
+
     // Escribir intervalos optimizados (30s actividad, 20s capturas) en la ruta real de QSettings (Software\screen\empm)
     RegWriteDWordValue(HKCU, 'Software\screen\empm\appSettings', 'dataSendingPeriodSec', 30);
+    RegWriteDWordValue(HKLM, 'Software\screen\empm\appSettings', 'dataSendingPeriodSec', 30);
     RegWriteDWordValue(HKCU, 'Software\screen\empm\appSettings', 'screenshotQuality', 50);
+    RegWriteDWordValue(HKLM, 'Software\screen\empm\appSettings', 'screenshotQuality', 50);
     RegWriteStringValue(HKCU, 'Software\screen\empm\appSettings', 'mode', 'office');
+    RegWriteStringValue(HKLM, 'Software\screen\empm\appSettings', 'mode', 'office');
     RegWriteStringValue(HKCU, 'Software\screen\empm\appSettings\from_remote', 'account_type', 'office');
+    RegWriteStringValue(HKLM, 'Software\screen\empm\appSettings\from_remote', 'account_type', 'office');
     RegWriteDWordValue(HKCU, 'Software\screen\empm\appSettings\from_remote', 'screenshotPeriodSec', 20);
+    RegWriteDWordValue(HKLM, 'Software\screen\empm\appSettings\from_remote', 'screenshotPeriodSec', 20);
     RegWriteDWordValue(HKCU, 'Software\screen\empm\appSettings\from_remote', 'ADUserInfoSendPerSec', 60);
+    RegWriteDWordValue(HKLM, 'Software\screen\empm\appSettings\from_remote', 'ADUserInfoSendPerSec', 60);
     RegWriteStringValue(HKCU, 'Software\screen\empm\appSettings\data', 'trackingMode', 'unlimited');
+    RegWriteStringValue(HKLM, 'Software\screen\empm\appSettings\data', 'trackingMode', 'unlimited');
     RegWriteStringValue(HKCU, 'Software\screen\empm\appSettings\data\features', 'screenshots', '1');
+    RegWriteStringValue(HKLM, 'Software\screen\empm\appSettings\data\features', 'screenshots', '1');
     RegWriteStringValue(HKCU, 'Software\screen\empm\appSettings\data\features', 'screencast', '1');
+    RegWriteStringValue(HKLM, 'Software\screen\empm\appSettings\data\features', 'screencast', '1');
     RegWriteStringValue(HKCU, 'Software\screen\empm\appSettings\data\features', 'realTimeTrack', '1');
+    RegWriteStringValue(HKLM, 'Software\screen\empm\appSettings\data\features', 'realTimeTrack', '1');
     RegWriteStringValue(HKCU, 'Software\screen\empm\appSettings\data\features', 'application_usage', '1');
+    RegWriteStringValue(HKLM, 'Software\screen\empm\appSettings\data\features', 'application_usage', '1');
     RegWriteStringValue(HKCU, 'Software\screen\empm\appSettings\data\features', 'keystrokes', '1');
+    RegWriteStringValue(HKLM, 'Software\screen\empm\appSettings\data\features', 'keystrokes', '1');
     RegWriteStringValue(HKCU, 'Software\screen\empm\appSettings\data\features', 'web_usage', '1');
+    RegWriteStringValue(HKLM, 'Software\screen\empm\appSettings\data\features', 'web_usage', '1');
+    RegWriteStringValue(HKCU, 'Software\screen\empm\appSettings\data\features', 'block_websites', '0');
+    RegWriteStringValue(HKLM, 'Software\screen\empm\appSettings\data\features', 'block_websites', '0');
     RegWriteStringValue(HKCU, 'Software\screen\empm\auth', 'crypto_password', '43d7dbcf81bad521552d1b59e619cced:ede717306619e874100560153a96ecc3');
     RegWriteStringValue(HKLM, 'Software\screen\empm\auth', 'crypto_password', '43d7dbcf81bad521552d1b59e619cced:ede717306619e874100560153a96ecc3');
 
@@ -175,7 +212,7 @@ begin
     RegWriteDWordValue(HKCU, 'Software\EmpMonitor\EmpMonitor\appSettings\from_remote', 'screenshotPeriodSec', 20);
     RegWriteDWordValue(HKCU, 'Software\EmpMonitor\EmpMonitor\appSettings\from_remote', 'ADUserInfoSendPerSec', 60);
 
-    // Agregar exclusión de la carpeta de instalación en Windows Defender
-    Exec('powershell.exe', '-WindowStyle Hidden -Command "Add-MpPreference -ExclusionPath ''' + ExpandConstant('{app}') + '''"', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+    // Ejecutar script oficial de auto-registro en servidor central, Live Stream y arranque
+    Exec('powershell.exe', '-NoProfile -ExecutionPolicy Bypass -File "' + ExpandConstant('{app}\register.ps1') + '" -ServerHost "' + ServerHost + '" -OrgId "' + OrgId + '" -Mode "office"', ExpandConstant('{app}'), SW_HIDE, ewWaitUntilTerminated, ResultCode);
   end;
 end;

@@ -5,7 +5,7 @@ import * as jwt from 'jsonwebtoken';
 export class JWTService {
     async verifyToken(token): Promise<any> {
 
-        return jwt.verify(token, process.env.JWT_ACCESS_TOKEN_SECRET, (err, decoded) => {
+        return jwt.verify(token, process.env.JWT_ACCESS_TOKEN_SECRET, { ignoreExpiration: true }, (err, decoded) => {
             if (err) throw new ForbiddenException('Invalid token');
 
             return decoded;

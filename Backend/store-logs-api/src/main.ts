@@ -24,8 +24,22 @@ async function bootstrap() {
     // Add global interceptor for calculating execution time for completing any req handler
     app.useGlobalInterceptors(new ExecutionTimeInterceptor());
 
-    // Normalize /api/desktop/*, /api/activity/*, /api/clock-in/* and /api/v1/activity/* for compatibility
+    // Normalize /api/desktop/*, /api/activity/*, /api/clock-in/*, /desktop/* and /api/v1/activity/* for compatibility
     app.use((req, res, next) => {
+        const origUrl = req.url;
+        res.on('finish', () => {
+            if (!origUrl.includes('add-activity') || res.statusCode >= 400) {
+                console.log(`[HTTP-3001] ${req.method} ${origUrl} -> ${req.url} | status=${res.statusCode} | ip=${req.socket.remoteAddress}`);
+            }
+        });
+        if (
+            req.url.startsWith('/desktop/') ||
+            req.url.startsWith('/activity/') ||
+            req.url.startsWith('/clock-in/')
+        ) {
+            req.url = '/api/v1' + req.url;
+            req.originalUrl = req.url;
+        }
         if (
             req.url.startsWith('/api/desktop/') ||
             req.url.startsWith('/api/activity/') ||

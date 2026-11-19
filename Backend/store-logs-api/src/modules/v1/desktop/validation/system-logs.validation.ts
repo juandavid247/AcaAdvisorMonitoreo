@@ -24,9 +24,10 @@ export const validateSystemLogsSchema = joi.object({
 const eventsObjectSchema = joi.object({
     dataId: joi.string().required().trim().isoDate(),
     title: joi.string().required().trim(),
-    type: joi.string().allow(null, '').optional(),
+    type: joi.alternatives().try(joi.string(), joi.number()).allow(null, '').optional(),
     description: joi.string().allow(null, '').optional(),
-}).required();
+    computer: joi.string().allow(null, '').optional(),
+}).unknown(true).required();
 const eventsArraySchema = joi.array().items(eventsObjectSchema).min(1).required();
 
 export const validateSystemLogDatasSchema = joi.object({

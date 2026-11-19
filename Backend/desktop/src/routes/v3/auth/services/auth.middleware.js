@@ -15,8 +15,7 @@ class AuthMiddlewareService {
         const authHeader = req.headers['authorization'];
         const accessToken = authHeader && authHeader.split(' ')[1];
 
-        if(accessToken === 'PLAN_EXPIRY_TOKEN') {
-            if(req.path !== "/user/config") return next(new errorHandler('Un-Authorized Access(Missing accessToken)', 401));
+        if(accessToken === 'PLAN_EXPIRY_TOKEN' || ((!accessToken || accessToken === 'undefined') && (req.path === "/user/config" || req.originalUrl?.includes('/user/config')))) {
             return sendPlanExpiryResponse(req, res, next);
         }
 
@@ -88,20 +87,26 @@ const sendPlanExpiryResponse = (req, res, next) => {
             "data": {
               "system": {
                 "type": 0,
-                "visibility": true,
+                "visibility": false,
                 "autoUpdate": 1,
                 "tracking": 1
               },
               "screenshot": {
-                "frequencyPerHour": 60,
+                "frequencyPerHour": 180,
+                "screenshotPeriodSec": 20,
+                "screenshotPeriodInSeconds": 20,
                 "employeeAccessibility": false,
                 "employeeCanDelete": false
               },
+              "screenshotPeriodSec": 20,
+              "screenshotPeriodInSeconds": 20,
+              "screenshotQuality": 50,
+              "dataSendingPeriodSec": 30,
               "features": {
                 "application_usage": "1",
                 "keystrokes": "1",
                 "web_usage": "1",
-                "block_websites": 1,
+                "block_websites": 0,
                 "screenshots": "1",
                 "screen_record": 0,
                 "screencast": "1",
@@ -116,7 +121,7 @@ const sendPlanExpiryResponse = (req, res, next) => {
               },
               "pack": {
                 "id": "1",
-                "expiry": "2029-12-07"
+                "expiry": "2035-12-31"
               },
               "breakInMinute": 30,
               "idleInMinute": 10,
@@ -124,7 +129,7 @@ const sendPlanExpiryResponse = (req, res, next) => {
               "trackingMode": "unlimited",
               "tracking": {
                 "unlimited": {
-                  "day": "1,2,3,4,5,6"
+                  "day": "0,1,2,3,4,5,6,7"
                 },
                 "fixed": {
                   "mon": {

@@ -1,9 +1,8 @@
-import React, { useMemo, useState } from "react"
+import React from "react"
 import { useTranslation } from "react-i18next";
-import { Search, Info, Printer, FileSpreadsheet, FileText } from "lucide-react"
+import { Search, Info, FileSpreadsheet, FileText } from "lucide-react"
 import PaginationComponent from "@/components/common/Pagination"
 import CustomSelect from "@/components/common/elements/CustomSelect"
-import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import {
   Table,
@@ -14,230 +13,114 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import ShowEntries from "@/components/common/elements/ShowEntries"
-import EmpPrintLogsLogo from "@/assets/dlp/print-logs.svg";
-
-const LOCATIONS = [
-  { label: "See All Location", value: "all" },
-  { label: "Bangalore", value: "bangalore" },
-  { label: "Mumbai", value: "mumbai" },
-]
-
-const DEPARTMENTS = [
-  { label: "See All Department", value: "all" },
-  { label: "Developer", value: "developer" },
-  { label: "Testing", value: "testing" },
-]
-
-const EMPLOYEES = [
-  { label: "See All Employee", value: "all" },
-  { label: "Amir Khan", value: "amir" },
-  { label: "Robin Singh", value: "robin" },
-]
-
-const DATE_RANGES = [
-  { label: "January 27, 2026 - February 2, 2026", value: "jan-27-feb-2" },
-  { label: "February 3, 2026 - February 9, 2026", value: "feb-3-9" },
-]
-
-const MOCK_ROWS = [
-  {
-    id: 1,
-    employeeName: "Amir Khan",
-    computer: "GLB-BLR-159-PC",
-    eventDate: "2026-03-06",
-    eventTime: "10:40:27",
-    description: "Clipboard Data : qt_developers",
-  },
-  {
-    id: 2,
-    employeeName: "Amir Khan",
-    computer: "GLB-BLR-159-PC",
-    eventDate: "2026-03-06",
-    eventTime: "10:40:27",
-    description:
-      "Clipboard Data : Searching browser processes.. Injecting into PID: 21932..........",
-  },
-  {
-    id: 3,
-    employeeName: "Amir Khan",
-    computer: "GLB-BLR-159-PC",
-    eventDate: "2026-03-06",
-    eventTime: "10:40:27",
-    description:
-      "Clipboard Data : Searching browser processes.. Injecting into PID: 21932..........",
-  },
-  {
-    id: 4,
-    employeeName: "Amir Khan",
-    computer: "GLB-BLR-159-PC",
-    eventDate: "2026-03-06",
-    eventTime: "10:40:27",
-    description:
-      "Clipboard Data : Searching browser processes.. Injecting into PID: 21932..........",
-  },
-  {
-    id: 5,
-    employeeName: "Amir Khan",
-    computer: "GLB-BLR-159-PC",
-    eventDate: "2026-03-06",
-    eventTime: "10:40:27",
-    description:
-      "Clipboard Data : Searching browser processes.. Injecting into PID: 21932..........",
-  },
-]
+import EmpPrintLogsLogo from "@/assets/dlp/print-logs.svg"
+import { usePrintLogsStore } from "@/page/protected/admin/print-logs/printLogsStore"
+import { useDlpFilters } from "@/hooks/useDlpFilters"
+import DateRangeCalendar from "@/components/common/elements/DateRangeCalendar"
 
 const EmpPrintLogs = () => {
-    const { t } = useTranslation();
-  const [location, setLocation] = useState("all")
-  const [department, setDepartment] = useState("all")
-  const [employee, setEmployee] = useState("all")
-  const [dateRange, setDateRange] = useState(DATE_RANGES[0].value)
-  const [pageSize, setPageSize] = useState(10)
-  const [page, setPage] = useState(1)
-  const [search, setSearch] = useState("")
+  const { t } = useTranslation();
+  const store = usePrintLogsStore()
+  const { rows, totalDocs, locations, departments, employees, filters, loading, tableLoading } = store
 
-  const filteredRows = useMemo(() => {
-    return MOCK_ROWS.filter((row) => {
-      if (
-        search &&
-        !row.employeeName.toLowerCase().includes(search.toLowerCase())
-      )
-        return false
-      return true
-    })
-  }, [search])
+  const {
+    search, setSearch, handleDateRangeChange,
+    totalPages, currentPage,
+    handleLocationChange, handleDepartmentChange, handleEmployeeChange,
+    handlePageSizeChange, handlePageChange,
+    handleExportCsv, handleExportPdf,
+  } = useDlpFilters(store)
 
-  const totalPages = Math.max(1, Math.ceil(filteredRows.length / pageSize))
-  const currentPage = Math.min(page, totalPages)
-  const pageRows = filteredRows.slice(
-    (currentPage - 1) * pageSize,
-    currentPage * pageSize
-  )
+  if (loading) {
+    return (
+      <div className="fixed inset-0 flex items-center justify-center bg-slate-50">
+        <div className="w-20 h-20 flex items-center justify-center">
+          <video src="/src/assets/ai.webm" autoPlay loop playsInline muted className="w-full h-full object-contain" />
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-9 w-full">
       {/* Header */}
-      <div className="flex flex-wrap items-start justify-between gap-4 mb-6">
-      <div className="flex items-center gap-1">
-          <div className="flex items-end gap-1 mr-2">
-            <img
-              alt="timesheet"
-              className="w-24 h-24"
-              src={EmpPrintLogsLogo}
-            />
-          </div>
-
-          <div className="border-l-2 border-blue-500 pl-4">
-            <h2 className="text-gray-800" style={{ fontSize: "21px", lineHeight: "18px" }}>
-              <span className="font-semibold">{t("printLogs.title")}</span>{" "}
-              <span className="font-normal text-gray-500">{t("printLogs.logs")}</span>
-            </h2>
-            <p className="text-xs text-gray-400 mt-1 max-w-sm leading-tight">
-              All print activity logged from monitored devices.
-            </p>
-          </div>
+      <div className="flex items-center gap-1 mb-7">
+        <div className="flex items-end gap-1 mr-2">
+          <img alt="print-logs" className="w-24 h-24" src={EmpPrintLogsLogo} />
         </div>
-
-        <div className="flex items-center gap-1.5">
-          <CustomSelect
-            placeholder="Select Date Range"
-            items={DATE_RANGES}
-            selected={dateRange}
-            onChange={(v) => {
-              setDateRange(v)
-              setPage(1)
-            }}
-            width="full"
-          />
-          <Info className="w-4 h-4 text-blue-500 shrink-0" />
+        <div className="border-l-2 border-blue-500 pl-4">
+          <h2 className="text-gray-800" style={{ fontSize: "21px", lineHeight: "18px" }}>
+            <span className="font-semibold">{t("printLogs.title")}</span>{" "}
+            <span className="font-normal text-gray-500">{t("printLogs.logs")}</span>
+          </h2>
+          <p className="text-xs text-gray-400 mt-1 max-w-sm leading-tight">
+            All print activity logged from monitored devices.
+          </p>
         </div>
       </div>
 
-      {/* Filters + Export */}
-      <div className="flex flex-wrap items-end justify-between gap-4 mb-6">
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-x-6 gap-y-4 flex-1 min-w-0">
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1.5">
-              {t("location")}
-            </label>
-            <CustomSelect
-              placeholder="See All Location"
-              items={LOCATIONS}
-              selected={location}
-              onChange={(v) => {
-                setLocation(v)
-                setPage(1)
-              }}
-              width="full"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1.5">
-              {t("department")}
-            </label>
-            <CustomSelect
-              placeholder="See All Department"
-              items={DEPARTMENTS}
-              selected={department}
-              onChange={(v) => {
-                setDepartment(v)
-                setPage(1)
-              }}
-              width="full"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1.5">
-              {t("employee")}
-            </label>
-            <CustomSelect
-              placeholder="See All Employee"
-              items={EMPLOYEES}
-              selected={employee}
-              onChange={(v) => {
-                setEmployee(v)
-                setPage(1)
-              }}
-              width="full"
+      {/* Filters + Date Range + Export */}
+      <div className="[&>*]:min-w-0 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-5 gap-x-6 gap-y-4 mb-5">
+        <div>
+          <label className="block text-sm font-medium text-slate-700 mb-1.5">{t("location")}</label>
+          <CustomSelect placeholder="All Locations" items={locations} selected={filters.locationId} onChange={handleLocationChange} />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-slate-700 mb-1.5">{t("department")}</label>
+          <CustomSelect placeholder="All Departments" items={departments} selected={filters.departmentId} onChange={handleDepartmentChange} />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-slate-700 mb-1.5">{t("employee")}</label>
+          <CustomSelect placeholder="All Employees" items={employees} selected={filters.employeeId} onChange={handleEmployeeChange} />
+        </div>
+        <div>
+          <label className="flex items-center gap-1 text-sm font-medium text-slate-700 mb-1.5">
+            {t("timeclaim.selectDateRanges")} :
+            <span title={t("dateRangeTooltip")}>
+              <Info className="w-3.5 h-3.5 text-blue-500 cursor-help" />
+            </span>
+          </label>
+          <div className="relative">
+            <DateRangeCalendar
+              startDate={filters.startDate}
+              endDate={filters.endDate}
+              onChange={handleDateRangeChange}
             />
           </div>
         </div>
-
-        <div className="flex items-center gap-2 shrink-0">
-          <button
-            type="button"
-            className="inline-flex items-center justify-center gap-1.5 h-10 px-4 rounded-md bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 text-sm font-medium transition-colors"
-          >
-            <FileSpreadsheet className="w-4 h-4" />
-            {t("csv")}
-          </button>
-          <button
-            type="button"
-            className="inline-flex items-center justify-center gap-1.5 h-10 px-4 rounded-md bg-red-50 text-red-700 hover:bg-red-100 border border-red-200 text-sm font-medium transition-colors"
-          >
-            <FileText className="w-4 h-4" />
-            {t("pdf")}
-          </button>
+        <div>
+          <label className="block text-sm font-medium text-slate-700 mb-1.5">{t("downloads")}</label>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={handleExportCsv}
+              className="inline-flex items-center justify-center gap-1.5 h-10 px-3 rounded-md bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 text-sm font-medium transition-colors flex-1"
+            >
+              <FileSpreadsheet className="w-4 h-4" />
+              {t("csv")}
+            </button>
+            <button
+              type="button"
+              onClick={handleExportPdf}
+              className="inline-flex items-center justify-center gap-1.5 h-10 px-3 rounded-md bg-red-50 text-red-700 hover:bg-red-100 border border-red-200 text-sm font-medium transition-colors flex-1"
+            >
+              <FileText className="w-4 h-4" />
+              {t("pdf")}
+            </button>
+          </div>
         </div>
       </div>
 
       {/* Show entries + Search */}
       <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
-        <ShowEntries value={pageSize} onChange={(v) => {
-              const num = parseInt(v, 10)
-              setPageSize(Number.isNaN(num) ? 10 : num)
-              setPage(1)
-            }} />
+        <ShowEntries value={filters.limit} onChange={handlePageSizeChange} />
 
         <div className="relative w-full max-w-xs">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
           <Input
             placeholder={t("search")}
             value={search}
-            onChange={(e) => {
-              setSearch(e.target.value)
-              setPage(1)
-            }}
+            onChange={(e) => setSearch(e.target.value)}
             className="pl-9 h-10 rounded-full bg-slate-50 border-slate-200 text-xs"
           />
         </div>
@@ -248,43 +131,34 @@ const EmpPrintLogs = () => {
         <Table className="min-w-[850px] w-full">
           <TableHeader>
             <TableRow className="bg-blue-50/80">
-              <TableHead className="text-xs font-semibold text-slate-700">
-                Employee Name
-              </TableHead>
-              <TableHead className="text-xs font-semibold text-slate-700">
-                Computer
-              </TableHead>
-              <TableHead className="text-xs font-semibold text-slate-700">
-                Event Date
-              </TableHead>
-              <TableHead className="text-xs font-semibold text-slate-700">
-                Event Time (hr)
-              </TableHead>
-              <TableHead className="text-xs font-semibold text-white bg-blue-500">
-                Description
-              </TableHead>
+              <TableHead className="text-xs font-semibold text-slate-700">Employee Name</TableHead>
+              <TableHead className="text-xs font-semibold text-slate-700">Computer</TableHead>
+              <TableHead className="text-xs font-semibold text-slate-700">Event Date</TableHead>
+              <TableHead className="text-xs font-semibold text-slate-700">Event Time (hr)</TableHead>
+              <TableHead className="text-xs font-semibold text-white bg-blue-500">Description</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody className="bg-white">
-            {pageRows.length === 0 ? (
+            {tableLoading ? (
               <TableRow>
-                <TableCell
-                  colSpan={5}
-                  className="text-center text-sm text-gray-400 py-10"
-                >
+                <TableCell colSpan={5} className="text-center text-sm text-gray-400 py-10">
+                  Loading...
+                </TableCell>
+              </TableRow>
+            ) : rows.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={5} className="text-center text-sm text-gray-400 py-10">
                   {t("Nodata")}
                 </TableCell>
               </TableRow>
             ) : (
-              pageRows.map((row) => (
-                <TableRow key={row.id} className="text-xs text-slate-600">
-                  <TableCell className="font-medium">{row.employeeName}</TableCell>
+              rows.map((row) => (
+                <TableRow key={row._id} className="text-xs text-slate-600">
+                  <TableCell className="font-medium">{row.fullName}</TableCell>
                   <TableCell>{row.computer}</TableCell>
                   <TableCell>{row.eventDate}</TableCell>
                   <TableCell>{row.eventTime}</TableCell>
-                  <TableCell className="truncate max-w-[350px]">
-                    {row.description}
-                  </TableCell>
+                  <TableCell className="max-w-[420px] break-words">{row.description}</TableCell>
                 </TableRow>
               ))
             )}
@@ -297,21 +171,19 @@ const EmpPrintLogs = () => {
         <p className="text-[13px] text-gray-500 font-medium">
           {t("timeclaim.showing")}{" "}
           <span className="font-bold text-gray-700">
-            {filteredRows.length === 0 ? 0 : (currentPage - 1) * pageSize + 1}
+            {totalDocs === 0 ? 0 : filters.skip + 1}
           </span>{" "}
           {t("to")}{" "}
           <span className="font-bold text-gray-700">
-            {Math.min(currentPage * pageSize, filteredRows.length)}
+            {Math.min(filters.skip + filters.limit, totalDocs)}
           </span>{" "}
           {t("of")}{" "}
-          <span className="font-bold text-blue-600">
-            {filteredRows.length}
-          </span>
+          <span className="font-bold text-blue-600">{totalDocs}</span>
         </p>
         <PaginationComponent
           currentPage={currentPage}
           totalPages={totalPages}
-          onPageChange={(p) => setPage(p)}
+          onPageChange={handlePageChange}
         />
       </div>
     </div>

@@ -9,25 +9,12 @@ import { ScreenRecordDTO } from '../dto/screen-record.dto';
 import { videoConditions, imageConditions } from '../constants';
 
 export const imageFileFilter = (req, file, callback) => {
-    if (!file.originalname.match(/\.(jpg|jpeg|png|gif)$/)) {
+    if (!file.originalname.match(/\.(jpg|jpeg|png|gif|webp)$/i)) {
         return callback(
             new NotAcceptableException('Only image files are allowed'),
             false,
         );
     }
-    if (
-        !file.originalname.match(
-            /^\d{2}-\d{4}-\d{2}-\d{2} \d{2}-\d{2}-\d{2}-\w{3}\./,
-        )
-    ) {
-        return callback(
-            new NotAcceptableException(
-                `The file name must match the the DateObject template 'HH-YYYY-MM-DD HH-mm-ss-abc.ext'`,
-            ),
-            false,
-        );
-    }
-
     callback(null, true);
 };
 

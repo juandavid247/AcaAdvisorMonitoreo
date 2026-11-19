@@ -7,9 +7,9 @@ import { EmployeeAttendanceModel } from './models/employee-attendance.model';
 import { IntegrationModel } from './models/integraion.model';
 import { ProductionStatsModel } from './models/production-stats.model';
 
-const exportsOnly = [EmployeeTimesheetModel, EmployeeAttendanceModel, IntegrationModel, ProductionStatsModel];
+const exportsOnly = [sequelizeDbProviders, EmployeeTimesheetModel, EmployeeAttendanceModel, IntegrationModel, ProductionStatsModel];
 
-const providersOnly = [sequelizeDbProviders, ...sequelizeRepoProviders, ...exportsOnly];
+const providersOnly = [...sequelizeRepoProviders, ...exportsOnly];
 @Module({
     imports: [ConfigModule.forRoot()],
     providers: [...providersOnly],

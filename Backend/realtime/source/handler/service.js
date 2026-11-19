@@ -101,13 +101,13 @@ subscribeToChannel("channel-update-image-request", (message) => {
             break;
         case "handleFEControl":
             const agentWs = connectedAgents[message.user_id];
-            if (agentWs !== "Dummy user") {
+            if (agentWs && agentWs !== "Dummy user") {
                 agentWs.send(JSON.stringify(message.payload));
             }
             break;
         case "startLatencyTestAgent":
             const agentSocketWS = connectedAgents[message.user_id];
-            if (agentSocketWS !== "Dummy user") {
+            if (agentSocketWS && agentSocketWS !== "Dummy user") {
                 agentSocketWS.send('Start Latency Test');
             }
             break;
@@ -224,12 +224,18 @@ const handleAgentAuth = async (ws, wss, parsedMessage) => {
         if (agentData) {
             connectedAgents[agentData.user_id] = ws;
             ws.user_id = agentData.user_id;
+            ws.employee_id = agentData.employee_id;
             ws.organization_id = agentData.organization_id;
 
             await publishToChannel("channel-update-realtime-activity", JSON.stringify({ user_id: agentData.user_id, message: "agent_auth", organization_id: agentData.organization_id }));
             await publishToChannel("channel-auth", JSON.stringify({ user_id: agentData.user_id, message: "Agent Auth" }));
 
-            return ws.send('Agent authenticated successfully');
+            ws.send('Agent authenticated successfully');
+            if ((imageRequests[agentData.user_id] && imageRequests[agentData.user_id].length > 0) ||
+                (agentData.employee_id && imageRequests[agentData.employee_id] && imageRequests[agentData.employee_id].length > 0)) {
+                ws.send('Start sending image - user is waiting');
+            }
+            return;
         } else {
             return ws.close();
         }
@@ -279,7 +285,21 @@ const handleReportAuth = async (ws, wss, parsedMessage) => {
 
 const handleStartImageStream = async (ws, wss, parsedMessage) => {
     if (!ws.user_id) return ws.close();
-    await publishToChannel("channel-image-stream", JSON.stringify({ user_id: ws.user_id, message: "channel-image-stream", parsedMessage }));
+    if (parsedMessage && parsedMessage.image0) {
+        const imgVal = parsedMessage.image0.startsWith('data:')
+            ? parsedMessage.image0
+            : `data:image/jpeg;base64,${parsedMessage.image0}`;
+        setAsync(`latest_screenshot:${ws.user_id}`, imgVal, 'EX', 86400).catch(() => {});
+        if (ws.employee_id && String(ws.employee_id) !== String(ws.user_id)) {
+            setAsync(`latest_screenshot:${ws.employee_id}`, imgVal, 'EX', 86400).catch(() => {});
+        }
+    }
+    await publishToChannel("channel-image-stream", JSON.stringify({
+        user_id: ws.user_id,
+        employee_id: ws.employee_id,
+        message: "channel-image-stream",
+        parsedMessage
+    }));
 };
 
 const handleImageRequest = async (ws, wss, parsedMessage) => {

@@ -696,6 +696,13 @@ class ProductivtyController {
         const chunk_size = 60;
         // const { start, end } = appData;
         let { buttonClicks, fakeActivities, keystrokes, mouseMovements } = activityPerSecond;
+        const slotLen = Array.isArray(buttonClicks) ? buttonClicks.length : 0;
+        const hasSlotInput = slotLen <= 60 && (
+            (Array.isArray(buttonClicks) && buttonClicks.some(x => x > 0)) ||
+            (Array.isArray(keystrokes) && keystrokes.some(x => x > 0)) ||
+            (Array.isArray(mouseMovements) && mouseMovements.some(x => x > 0)) ||
+            (Array.isArray(appUsage) && appUsage.length > 1)
+        );
         const condition = buttonClicks.length !== appUsage[appUsage.length - 1].end && buttonClicks.length == (appUsage[appUsage.length - 1].end + 1) && appUsage[appUsage.length - 1].end == end && !(buttonClicks.length - 1 == start);
         if (condition) {
             buttonClicks = buttonClicks.slice(start, (appUsage[appUsage.length - 1].end + 1));
@@ -718,6 +725,7 @@ class ProductivtyController {
         let chunkStartTime = null, chunkEndTime = null;
         const activeSeconds = buttonClickChunks.reduce((activeSeconds, chunk, currentIndex, array) => {
             if (
+                hasSlotInput ||
                 buttonClickChunks[currentIndex].some(x => x > 0) ||
                 fakeActivityChunks[currentIndex].some(x => x > 0) ||
                 keystrokeChunks[currentIndex].some(x => x > 0) ||

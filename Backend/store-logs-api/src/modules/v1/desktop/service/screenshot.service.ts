@@ -296,7 +296,8 @@ export class ScreenshotService {
                     const sharedBase = process.env.SHARED_SCREENSHOTS_PATH || '/app/shared_screenshots';
                     const { projectId = 0, taskId = 0 } = data || ({} as any);
                     for (const file of files) {
-                        const day: string = file.originalname.substr(3, 10);
+                        const dateMatch = file.originalname.match(/\d{4}-\d{2}-\d{2}/);
+                        const day: string = dateMatch ? dateMatch[0] : new Date().toISOString().slice(0, 10);
                         const targetDir = path.join(sharedBase, userData.email, day);
                         await fs.mkdir(targetDir, { recursive: true });
                         file.filename = `${projectId}-${taskId}-${file.originalname}`;
