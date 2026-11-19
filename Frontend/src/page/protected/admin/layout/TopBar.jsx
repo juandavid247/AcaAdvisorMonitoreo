@@ -47,7 +47,7 @@ export default function TopHeader() {
   };
 
   return (
-    <div className="flex items-center justify-between border-b sticky top-0 z-50 border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 px-5 py-3 w-full transition-colors duration-200 shadow-xs">
+    <div className="flex items-center justify-between border-b sticky top-0 z-50 border-slate-200/80 dark:border-slate-800 bg-white dark:bg-[#0D1526] px-5 py-3 w-full transition-colors duration-200 shadow-xs">
       {/* Left — Greeting */}
       <div className="flex items-center gap-2">
         {(!open || window.innerWidth <= 768) && (
@@ -100,7 +100,7 @@ export default function TopHeader() {
           href="http://help.empmonitor.com/"
           target="_blank"
           rel="noreferrer"
-          className="flex items-center gap-1 text-sm text-slate-600 hover:text-[#0F7CB9] dark:text-slate-400 dark:hover:text-white transition-colors"
+          className="flex items-center gap-1 text-sm text-slate-600 hover:text-[#0F7CB9] dark:text-slate-200 dark:hover:text-white transition-colors"
         >
           <HelpCircle className="h-4 w-4" />
           {t("topbar_help")}

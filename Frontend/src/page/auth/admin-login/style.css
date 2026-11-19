@@ -68,16 +68,20 @@
 }
 
 .dark .emp-input {
-  background-color: rgba(19, 30, 50, 0.85) !important;
-  border-color: rgba(255, 255, 255, 0.12) !important;
+  background-color: rgba(15, 23, 42, 0.92) !important;
+  border-color: rgba(148, 163, 184, 0.34) !important;
   color: #F8FAFC !important;
 }
 
+.dark .emp-input::placeholder {
+  color: #94A3B8 !important;
+}
+
 .dark .emp-input:focus {
-  background-color: rgba(22, 36, 60, 0.98) !important;
-  border-color: #30A9E3 !important;
+  background-color: rgba(15, 23, 42, 1) !important;
+  border-color: #38BDF8 !important;
   box-shadow:
-    0 0 0 3px rgba(48, 169, 227, 0.35),
+    0 0 0 3px rgba(56, 189, 248, 0.35),
     0 4px 16px rgba(0, 0, 0, 0.5) !important;
 }
 

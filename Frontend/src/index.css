@@ -112,45 +112,46 @@
 }
 
 .dark {
-  --background: #0B1120;
+  color-scheme: dark;
+  --background: #090F1D;
   --foreground: #F8FAFC;
-  --card: #131E32;
+  --card: #111B2E;
   --card-foreground: #F8FAFC;
-  --popover: #131E32;
+  --popover: #162238;
   --popover-foreground: #F8FAFC;
-  --primary: #30A9E3;
-  --primary-foreground: #FFFFFF;
-  --secondary: #1E293B;
-  --secondary-foreground: #B6DDE2;
-  --muted: #1E293B;
-  --muted-foreground: #94A3B8;
-  --accent: rgba(48, 169, 227, 0.15);
-  --accent-foreground: #38BDF8;
+  --primary: #38BDF8;
+  --primary-foreground: #090F1D;
+  --secondary: #1B2840;
+  --secondary-foreground: #E2E8F0;
+  --muted: #1A263D;
+  --muted-foreground: #CBD5E1;
+  --accent: rgba(56, 189, 248, 0.18);
+  --accent-foreground: #7DD3FC;
   --destructive: #F87171;
-  --border: rgba(255, 255, 255, 0.08);
-  --input: rgba(255, 255, 255, 0.12);
-  --ring: #30A9E3;
+  --border: rgba(148, 163, 184, 0.24);
+  --input: rgba(148, 163, 184, 0.32);
+  --ring: #38BDF8;
   --chart-1: #38BDF8;
   --chart-2: #4ADE80;
   --chart-3: #60A5FA;
   --chart-4: #8CC5A0;
   --chart-5: #B6DDE2;
-  --sidebar: #0F172A;
-  --sidebar-foreground: #F1F5F9;
-  --sidebar-primary: #30A9E3;
-  --sidebar-primary-foreground: #FFFFFF;
-  --sidebar-accent: #1E293B;
-  --sidebar-accent-foreground: #38BDF8;
-  --sidebar-border: rgba(255, 255, 255, 0.08);
-  --sidebar-ring: #30A9E3;
+  --sidebar: #0D1526;
+  --sidebar-foreground: #F8FAFC;
+  --sidebar-primary: #38BDF8;
+  --sidebar-primary-foreground: #090F1D;
+  --sidebar-accent: #1B2840;
+  --sidebar-accent-foreground: #7DD3FC;
+  --sidebar-border: rgba(148, 163, 184, 0.20);
+  --sidebar-ring: #38BDF8;
 
   /* ACA ADVISOR Dark Tokens */
   --aca-blue: #38BDF8;
   --aca-green: #4ADE80;
-  --aca-title: #38BDF8;
-  --aca-sage: #8CC5A0;
-  --aca-ice: #B6DDE2;
-  --aca-light-bg: #0B1120;
+  --aca-title: #7DD3FC;
+  --aca-sage: #A7F3D0;
+  --aca-ice: #E0F2FE;
+  --aca-light-bg: #090F1D;
 }
 
 @layer base {
@@ -253,7 +254,237 @@
   }
 
   .dark .emp-fullscreen {
-    background: #0B1120 !important;
+    background: #090F1D !important;
     color: #F8FAFC !important;
+  }
+}
+
+/* ============================================================================
+   ACA ADVISOR - High-Contrast Dark Mode Compatibility Layer
+   Upgrades legacy light-only utility classes across dashboards, tables,
+   modals, inputs, badges and charts without overriding explicit dark:* rules.
+   ============================================================================ */
+.dark {
+  /* Surfaces */
+  & .bg-white:not([class*="dark:bg-"]) {
+    background-color: #111B2E !important;
+  }
+  & .bg-white\/95:not([class*="dark:bg-"]),
+  & .bg-white\/90:not([class*="dark:bg-"]),
+  & .bg-white\/80:not([class*="dark:bg-"]) {
+    background-color: rgba(17, 27, 46, 0.94) !important;
+  }
+  & .bg-slate-50:not([class*="dark:bg-"]),
+  & .bg-gray-50:not([class*="dark:bg-"]),
+  & .bg-neutral-50:not([class*="dark:bg-"]),
+  & .bg-zinc-50:not([class*="dark:bg-"]) {
+    background-color: #0E172A !important;
+  }
+  & .bg-slate-100:not([class*="dark:bg-"]),
+  & .bg-gray-100:not([class*="dark:bg-"]),
+  & .bg-neutral-100:not([class*="dark:bg-"]) {
+    background-color: #18243A !important;
+  }
+  & .bg-slate-200:not([class*="dark:bg-"]),
+  & .bg-gray-200:not([class*="dark:bg-"]),
+  & .bg-gray-300:not([class*="dark:bg-"]) {
+    background-color: #24334D !important;
+  }
+
+  /* Pastel status/info surfaces */
+  & .bg-blue-50:not([class*="dark:bg-"]),
+  & .bg-sky-50:not([class*="dark:bg-"]) {
+    background-color: rgba(14, 165, 233, 0.16) !important;
+  }
+  & .bg-green-50:not([class*="dark:bg-"]),
+  & .bg-emerald-50:not([class*="dark:bg-"]) {
+    background-color: rgba(16, 185, 129, 0.16) !important;
+  }
+  & .bg-red-50:not([class*="dark:bg-"]),
+  & .bg-rose-50:not([class*="dark:bg-"]) {
+    background-color: rgba(239, 68, 68, 0.18) !important;
+  }
+  & .bg-amber-50:not([class*="dark:bg-"]),
+  & .bg-yellow-50:not([class*="dark:bg-"]),
+  & .bg-orange-50:not([class*="dark:bg-"]) {
+    background-color: rgba(245, 158, 11, 0.18) !important;
+  }
+  & .bg-purple-50:not([class*="dark:bg-"]),
+  & .bg-indigo-50:not([class*="dark:bg-"]) {
+    background-color: rgba(129, 140, 248, 0.18) !important;
+  }
+
+  /* Legacy arbitrary hex light backgrounds */
+  & [class*="bg-[#F8FAFC]"]:not([class*="dark:bg-"]),
+  & [class*="bg-[#F9F9F9]"]:not([class*="dark:bg-"]),
+  & [class*="bg-[#f8fafc]"]:not([class*="dark:bg-"]),
+  & [class*="bg-[#f9f9f9]"]:not([class*="dark:bg-"]) {
+    background-color: #0E172A !important;
+  }
+  & [class*="bg-[#E9E9E9]"]:not([class*="dark:bg-"]),
+  & [class*="bg-[#e9e9e9]"]:not([class*="dark:bg-"]) {
+    background-color: #1E293B !important;
+  }
+  & [class*="bg-[#CADDFF]"]:not([class*="dark:bg-"]),
+  & [class*="bg-[#caddff]"]:not([class*="dark:bg-"]) {
+    background-color: #1A2B48 !important;
+  }
+  & [class*="bg-[#E0F2FE]"]:not([class*="dark:bg-"]),
+  & [class*="bg-[#e0f2fe]"]:not([class*="dark:bg-"]) {
+    background-color: rgba(56, 189, 248, 0.18) !important;
+  }
+  & [class*="bg-[#ede9fe]"]:not([class*="dark:bg-"]) {
+    background-color: rgba(139, 92, 246, 0.2) !important;
+  }
+
+  /* Legacy arbitrary hex dark text colors (invisible on dark bg) */
+  & [class*="text-[#121212]"]:not([class*="dark:text-"]),
+  & [class*="text-[#1A202C]"]:not([class*="dark:text-"]),
+  & [class*="text-[#1B2559]"]:not([class*="dark:text-"]),
+  & [class*="text-[#2B3674]"]:not([class*="dark:text-"]),
+  & [class*="text-[#1a2a4a]"]:not([class*="dark:text-"]) {
+    color: #F8FAFC !important;
+  }
+  & [class*="text-[#424242]"]:not([class*="dark:text-"]),
+  & [class*="text-[#575757]"]:not([class*="dark:text-"]),
+  & [class*="text-[#3a5a7a]"]:not([class*="dark:text-"]) {
+    color: #E2E8F0 !important;
+  }
+  & [class*="text-[#A3AED0]"]:not([class*="dark:text-"]) {
+    color: #CBD5E1 !important;
+  }
+  & [class*="text-[#0F7CB9]"]:not([class*="dark:text-"]) {
+    color: #7DD3FC !important;
+  }
+
+  /* High-contrast Typography (WCAG AA/AAA on #090F1D - #18243A) */
+  & .text-black:not([class*="dark:text-"]),
+  & .text-gray-950:not([class*="dark:text-"]),
+  & .text-gray-900:not([class*="dark:text-"]),
+  & .text-slate-950:not([class*="dark:text-"]),
+  & .text-slate-900:not([class*="dark:text-"]),
+  & .text-neutral-900:not([class*="dark:text-"]),
+  & .text-zinc-900:not([class*="dark:text-"]) {
+    color: #F8FAFC !important;
+  }
+  & .text-gray-800:not([class*="dark:text-"]),
+  & .text-slate-800:not([class*="dark:text-"]),
+  & .text-neutral-800:not([class*="dark:text-"]),
+  & .text-zinc-800:not([class*="dark:text-"]) {
+    color: #F1F5F9 !important;
+  }
+  & .text-gray-700:not([class*="dark:text-"]),
+  & .text-slate-700:not([class*="dark:text-"]),
+  & .text-neutral-700:not([class*="dark:text-"]),
+  & .text-zinc-700:not([class*="dark:text-"]) {
+    color: #E2E8F0 !important;
+  }
+  & .text-gray-600:not([class*="dark:text-"]),
+  & .text-slate-600:not([class*="dark:text-"]),
+  & .text-neutral-600:not([class*="dark:text-"]),
+  & .text-zinc-600:not([class*="dark:text-"]) {
+    color: #CBD5E1 !important;
+  }
+  & .text-gray-500:not([class*="dark:text-"]),
+  & .text-slate-500:not([class*="dark:text-"]),
+  & .text-neutral-500:not([class*="dark:text-"]) {
+    color: #B8C7DC !important;
+  }
+  & .text-gray-400:not([class*="dark:text-"]),
+  & .text-slate-400:not([class*="dark:text-"]) {
+    color: #9FB3CE !important;
+  }
+
+  /* Colored link & status text contrast boost */
+  & .text-blue-700:not([class*="dark:text-"]),
+  & .text-blue-600:not([class*="dark:text-"]),
+  & .text-sky-700:not([class*="dark:text-"]) {
+    color: #7DD3FC !important;
+  }
+  & .text-green-700:not([class*="dark:text-"]),
+  & .text-emerald-700:not([class*="dark:text-"]) {
+    color: #6EE7B7 !important;
+  }
+  & .text-red-700:not([class*="dark:text-"]),
+  & .text-red-600:not([class*="dark:text-"]) {
+    color: #FCA5A5 !important;
+  }
+  & .text-amber-700:not([class*="dark:text-"]),
+  & .text-yellow-700:not([class*="dark:text-"]),
+  & .text-orange-700:not([class*="dark:text-"]) {
+    color: #FCD34D !important;
+  }
+
+  /* Borders & Dividers */
+  & .border-gray-100:not([class*="dark:border-"]),
+  & .border-gray-200:not([class*="dark:border-"]),
+  & .border-slate-100:not([class*="dark:border-"]),
+  & .border-slate-200:not([class*="dark:border-"]) {
+    border-color: rgba(148, 163, 184, 0.22) !important;
+  }
+  & .border-gray-300:not([class*="dark:border-"]),
+  & .border-slate-300:not([class*="dark:border-"]) {
+    border-color: rgba(148, 163, 184, 0.34) !important;
+  }
+  & .divide-gray-100 > :not([hidden]) ~ :not([hidden]),
+  & .divide-gray-200 > :not([hidden]) ~ :not([hidden]),
+  & .divide-slate-100 > :not([hidden]) ~ :not([hidden]),
+  & .divide-slate-200 > :not([hidden]) ~ :not([hidden]) {
+    border-color: rgba(148, 163, 184, 0.2) !important;
+  }
+
+  /* Hover states on legacy tables/lists */
+  & .hover\:bg-gray-50:hover:not([class*="dark:hover:bg-"]),
+  & .hover\:bg-slate-50:hover:not([class*="dark:hover:bg-"]) {
+    background-color: rgba(30, 41, 59, 0.72) !important;
+  }
+  & .hover\:bg-gray-100:hover:not([class*="dark:hover:bg-"]),
+  & .hover\:bg-slate-100:hover:not([class*="dark:hover:bg-"]) {
+    background-color: rgba(51, 65, 85, 0.65) !important;
+  }
+
+  /* Form controls & placeholders */
+  & input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+  & textarea,
+  & select {
+    color: #F8FAFC;
+  }
+  & input::placeholder,
+  & textarea::placeholder {
+    color: #94A3B8 !important;
+    opacity: 1;
+  }
+  & option {
+    background-color: #111B2E;
+    color: #F8FAFC;
+  }
+
+  /* Tables */
+  & table thead th {
+    color: #E2E8F0;
+  }
+  & table tbody td {
+    color: #E2E8F0;
+  }
+
+  /* Charts (Recharts / SVG axes, labels & gridlines) */
+  & .recharts-cartesian-axis-tick-value,
+  & .recharts-text,
+  & .recharts-legend-item-text {
+    fill: #CBD5E1 !important;
+    color: #CBD5E1 !important;
+  }
+  & .recharts-cartesian-grid line {
+    stroke: rgba(148, 163, 184, 0.18) !important;
+  }
+  & .recharts-default-tooltip {
+    background-color: #162238 !important;
+    border-color: rgba(148, 163, 184, 0.3) !important;
+    color: #F8FAFC !important;
+  }
+
+  /* Subtle dark-mode halo for brand logos so colors stay vibrant */
+  & .aca-logo-adaptive {
+    filter: drop-shadow(0 0 12px rgba(56, 189, 248, 0.25)) brightness(1.06);
   }
 }

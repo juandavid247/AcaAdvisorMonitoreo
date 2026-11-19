@@ -17,22 +17,22 @@ const AppMenuItems = ({ item, openKey, setOpenKey }) => {
         <SidebarMenuButton
           asChild
           tooltip={item.title}
-          className="relative my-[2px] h-11 hover:bg-slate-50 transition-all duration-200"
+          className="relative my-[2px] h-11 hover:bg-slate-100/70 dark:hover:bg-slate-800/60 rounded-xl transition-all duration-200"
         >
           <NavLink
             to={item.url}
             className={({ isActive }) =>
-              `flex w-full items-center gap-3 px-3 transition-colors duration-200 ${isActive ? "bg-slate-50" : "hover:bg-slate-50/50"}`
+              `flex w-full items-center gap-3 px-3 rounded-xl transition-colors duration-200 ${isActive ? "bg-[#E0F2FE]/60 dark:bg-slate-800/80" : "hover:bg-slate-100/60 dark:hover:bg-slate-800/50"}`
             }
           >
             {({ isActive }) => (
               <>
-                <item.icon className={`h-5 w-5 shrink-0 transition-colors duration-200 ${isActive ? "text-[#1B2559]" : "text-[#cbd5e1]"}`} />
-                <span className={`text-[15px] transition-colors duration-200 ${isActive ? "font-bold text-[#1B2559]" : "font-medium text-[#A3AED0] hover:text-[#1B2559]"}`}>
+                <item.icon className={`h-5 w-5 shrink-0 transition-colors duration-200 ${isActive ? "text-[#0F7CB9] dark:text-[#38BDF8]" : "text-slate-500 dark:text-slate-300"}`} />
+                <span className={`text-[15px] transition-colors duration-200 ${isActive ? "font-bold text-[#0F7CB9] dark:text-[#7DD3FC]" : "font-medium text-slate-700 dark:text-slate-100 hover:text-[#0F7CB9] dark:hover:text-white"}`}>
                   {item.title}
                 </span>
                 {isActive && (
-                  <div className="absolute right-0 top-1/2 h-6 w-[3px] -translate-y-1/2 rounded-l-md bg-[#1B2559] group-data-[collapsible=icon]:hidden" />
+                  <div className="absolute right-0 top-1/2 h-6 w-[3px] -translate-y-1/2 rounded-l-md bg-[#30A9E3] group-data-[collapsible=icon]:hidden" />
                 )}
               </>
             )}

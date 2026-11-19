@@ -4,7 +4,7 @@
 ; ==============================================================================
 
 #define MyAppName "ACA Advisor Agent"
-#define MyAppVersion "3.0.3"
+#define MyAppVersion "3.0.4"
 #define MyAppPublisher "ACA ADVISOR S.A.S."
 #define MyAppURL "https://acaadvisor.com"
 #define MyAppExeName "aca-agent.exe"
@@ -28,6 +28,7 @@ LicenseFile=LICENSE.txt
 OutputDir=Output
 OutputBaseFilename=ACA_Advisor_Agent_Setup
 SetupIconFile=aca-advisor.ico
+UninstallDisplayIcon={app}\aca-advisor.ico
 Compression=lzma2/ultra64
 SolidCompression=yes
 WizardStyle=modern
@@ -36,7 +37,7 @@ ArchitecturesInstallIn64BitMode=x64
 CloseApplications=force
 
 ; Personalización visual de ACA ADVISOR
-WizardImageFile=logo-isotype.png
+WizardImageFile=wizard-side.png
 WizardSmallImageFile=logo-isotype.png
 
 [Languages]

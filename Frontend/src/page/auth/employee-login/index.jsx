@@ -71,54 +71,47 @@ export const EmployeeLogin = () => {
 
   return (
     <div
-      className="relative min-h-screen flex flex-col overflow-hidden bg-[#F8FAFC] dark:bg-[#0B1120] text-slate-800 dark:text-slate-100 transition-colors duration-300 aca-hex-bg"
+      className="relative min-h-screen flex flex-col overflow-hidden bg-[#F8FAFC] dark:bg-[#090F1D] text-slate-800 dark:text-slate-100 transition-colors duration-300 aca-hex-bg"
     >
-      {/* Header */}
-      <header className="animate-fade-down relative z-10 flex items-center justify-between px-6 sm:px-12 py-5 sm:py-7">
-        <div className="flex items-center gap-3">
-          <img
-            src={empLogo}
-            alt="ACA ADVISOR S.A.S."
-            className="h-24 sm:h-32 md:h-36 w-auto max-w-[280px] sm:max-w-[420px] object-contain drop-shadow-md transition-all duration-200"
-          />
-        </div>
-        <div className="flex items-center gap-3">
-          <ThemeToggle />
-        </div>
+      {/* Top-right Theme Toggle */}
+      <header className="animate-fade-down relative z-10 flex items-center justify-end px-6 sm:px-10 pt-5">
+        <ThemeToggle />
       </header>
 
-      {/* Main */}
-      <main className="relative z-10 flex flex-1 items-center justify-end px-6 sm:px-16 lg:px-24 pb-12 max-w-[1700px] w-full">
-        <div className="flex flex-col items-center justify-center max-w-[480px] w-full gap-4">
+      {/* Centered Main */}
+      <main className="relative z-10 flex flex-1 flex-col items-center justify-center px-4 sm:px-6 pb-10 pt-2 w-full">
+        <div className="flex flex-col items-center justify-center max-w-[460px] w-full gap-5">
+          {/* Large Centered Brand Logo */}
+          <div className="animate-fade-down flex justify-center w-full">
+            <img
+              src={empLogo}
+              alt="ACA ADVISOR S.A.S."
+              className="h-32 sm:h-40 md:h-44 w-auto max-w-[360px] sm:max-w-[420px] object-contain drop-shadow-lg aca-logo-adaptive transition-all duration-200"
+            />
+          </div>
+
           <div
-            className="animate-card-rise relative w-full rounded-3xl overflow-hidden px-8 sm:px-12 py-10 border border-slate-200/90 dark:border-slate-800/90 bg-white/95 dark:bg-[#131E32]/95 backdrop-blur-xl shadow-2xl shadow-sky-500/5 dark:shadow-black/60 transition-all duration-300"
+            className="animate-card-rise relative w-full rounded-3xl overflow-hidden px-7 sm:px-11 py-9 border border-slate-200/90 dark:border-slate-700/80 bg-white/95 dark:bg-[#111B2E]/95 backdrop-blur-xl shadow-2xl shadow-sky-500/10 dark:shadow-black/70 transition-all duration-300"
           >
             {/* Top brand accent bar */}
             <div className="absolute top-0 left-0 right-0 h-1.5 shimmer-bar" />
 
-            {/* Avatar */}
-            <div className="flex justify-center mb-5 mt-2">
-              <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-[#30A9E3]/15 to-[#3A9F6B]/15 dark:from-[#30A9E3]/25 dark:to-[#3A9F6B]/25 flex items-center justify-center border border-[#30A9E3]/25 shadow-md">
-                <img src={smallempLogo} alt="ACA ADVISOR" className="w-10 h-10 object-contain drop-shadow-sm" />
-              </div>
-            </div>
-
             {/* Title */}
-            <div className="text-center mb-7">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-[#30A9E3] dark:text-[#38BDF8]">
+            <div className="text-center mb-6 mt-1">
+              <span className="text-xs font-bold uppercase tracking-widest text-[#30A9E3] dark:text-[#38BDF8]">
                 ACA ADVISOR S.A.S.
               </span>
               <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-[#0F7CB9] dark:text-white mt-1">
                 {t("auth_employee_login")}
               </h2>
-              <p className="text-[13px] text-slate-500 dark:text-slate-400 mt-1">
+              <p className="text-[13px] text-slate-600 dark:text-slate-300 mt-1">
                 {t("auth_sign_in_employee")}
               </p>
             </div>
 
             {/* Error banner */}
             {error && (
-              <div className="animate-fade-in flex items-center gap-2 mb-5 px-3.5 py-2.5 rounded-xl text-[13px] text-red-700 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 border-l-[3px] border-l-red-500">
+              <div className="animate-fade-in flex items-center gap-2 mb-5 px-3.5 py-2.5 rounded-xl text-[13px] text-red-700 dark:text-red-200 bg-red-50 dark:bg-red-950/60 border border-red-200 dark:border-red-800 border-l-[3px] border-l-red-500">
                 <AlertCircle size={16} className="shrink-0" />
                 <span>{error}</span>
               </div>
@@ -128,7 +121,7 @@ export const EmployeeLogin = () => {
             <form onSubmit={handleSubmit} className="space-y-4">
               {/* Email */}
               <div className="space-y-1.5">
-                <Label htmlFor="email" className="text-[13px] font-semibold text-slate-700 dark:text-slate-300">
+                <Label htmlFor="email" className="text-[13px] font-semibold text-slate-700 dark:text-slate-100">
                   {t("email")}
                 </Label>
                 <Input
@@ -138,15 +131,15 @@ export const EmployeeLogin = () => {
                   onChange={(e) => setEmail(e.target.value)}
                   required
                   placeholder={t("auth_enter_your_email")}
-                  className={`emp-input px-4 h-11 rounded-xl text-sm text-slate-900 dark:text-slate-100 bg-white dark:bg-slate-900/80 placeholder:text-slate-400 border-[1.5px] transition-all duration-200 ${
-                    error ? "border-red-300 emp-input-error" : "border-slate-200 dark:border-slate-700"
+                  className={`emp-input px-4 h-11 rounded-xl text-sm text-slate-900 dark:text-white bg-white dark:bg-slate-900/90 placeholder:text-slate-400 border-[1.5px] transition-all duration-200 ${
+                    error ? "border-red-400 emp-input-error" : "border-slate-200 dark:border-slate-600"
                   }`}
                 />
               </div>
 
               {/* Password */}
               <div className="space-y-1.5">
-                <Label htmlFor="password" className="text-[13px] font-semibold text-slate-700 dark:text-slate-300">
+                <Label htmlFor="password" className="text-[13px] font-semibold text-slate-700 dark:text-slate-100">
                   {t("password")}
                 </Label>
                 <div className="relative">
@@ -157,8 +150,8 @@ export const EmployeeLogin = () => {
                     onChange={(e) => setPassword(e.target.value)}
                     required
                     placeholder={t("auth_enter_your_password")}
-                    className={`emp-input px-4 pr-11 h-11 rounded-xl text-sm text-slate-900 dark:text-slate-100 bg-white dark:bg-slate-900/80 placeholder:text-slate-400 border-[1.5px] transition-all duration-200 ${
-                      error ? "border-red-300 emp-input-error" : "border-slate-200 dark:border-slate-700"
+                    className={`emp-input px-4 pr-11 h-11 rounded-xl text-sm text-slate-900 dark:text-white bg-white dark:bg-slate-900/90 placeholder:text-slate-400 border-[1.5px] transition-all duration-200 ${
+                      error ? "border-red-400 emp-input-error" : "border-slate-200 dark:border-slate-600"
                     }`}
                   />
                   <Button
@@ -167,7 +160,7 @@ export const EmployeeLogin = () => {
                     size="icon"
                     tabIndex={-1}
                     onClick={() => setShowPassword((v) => !v)}
-                    className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8 text-slate-400 hover:text-[#30A9E3] hover:bg-transparent transition-colors duration-200"
+                    className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8 text-slate-500 dark:text-slate-300 hover:text-[#30A9E3] dark:hover:text-[#38BDF8] hover:bg-transparent transition-colors duration-200"
                   >
                     {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                   </Button>
@@ -196,7 +189,7 @@ export const EmployeeLogin = () => {
                 <Button
                   type="button"
                   variant="ghost"
-                  className="h-auto p-0 text-[13px] font-semibold text-[#30A9E3] hover:text-[#0F7CB9] dark:text-[#38BDF8] hover:bg-transparent hover:underline transition-opacity duration-200"
+                  className="h-auto p-0 text-[13px] font-semibold text-[#0F7CB9] hover:text-[#30A9E3] dark:text-[#7DD3FC] hover:bg-transparent hover:underline transition-opacity duration-200"
                 >
                   {t("auth_forgot_password")}
                 </Button>
@@ -204,12 +197,12 @@ export const EmployeeLogin = () => {
             </form>
 
             {/* Footer links */}
-            <p className="text-center text-[13px] text-slate-500 dark:text-slate-400 leading-relaxed mt-5">
+            <p className="text-center text-[13px] text-slate-600 dark:text-slate-300 leading-relaxed mt-5">
               {t("auth_admin_question")}{" "}
               <Button
                 type="button"
                 variant="ghost"
-                className="h-auto p-0 text-[13px] font-bold text-[#30A9E3] hover:text-[#0F7CB9] dark:text-[#38BDF8] hover:bg-transparent hover:underline"
+                className="h-auto p-0 text-[13px] font-bold text-[#0F7CB9] hover:text-[#30A9E3] dark:text-[#7DD3FC] hover:bg-transparent hover:underline"
                 onClick={() => navigate("/admin-login")}
               >
                 {t("auth_admin_login")}
@@ -217,7 +210,7 @@ export const EmployeeLogin = () => {
             </p>
           </div>
 
-          <span className="text-xs text-slate-500 dark:text-slate-400">
+          <span className="text-xs text-slate-600 dark:text-slate-300 text-center">
             © {new Date().getFullYear()} ACA ADVISOR S.A.S. - Todos los derechos reservados
           </span>
         </div>

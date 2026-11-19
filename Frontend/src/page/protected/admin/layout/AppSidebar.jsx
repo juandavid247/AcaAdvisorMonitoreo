@@ -178,24 +178,28 @@ export function AppSidebar() {
 
   return (
     <Sidebar collapsible="icon">
-      <SidebarHeader className="bg-white dark:bg-slate-900 border-b border-slate-200/80 dark:border-slate-800 p-0 transition-colors duration-200">
+      <SidebarHeader className="bg-white dark:bg-[#0D1526] border-b border-slate-200/80 dark:border-slate-800 p-0 transition-colors duration-200">
         <div
-          className={`flex items-center justify-between transition-all duration-200 ease-in-out ${
-            !open ? "px-2 py-4 justify-center" : "p-3"
+          className={`flex items-center transition-all duration-200 ease-in-out ${
+            !open ? "px-2 py-4 justify-center" : "px-3.5 py-4 justify-between gap-2"
           }`}
         >
-          <div className="flex items-center gap-2">
+          <div className={`flex items-center ${open ? "flex-1 justify-center" : "justify-center"}`}>
             <div className="flex items-center justify-center font-bold">
               <img
                 src={open ? empLogo : favLogo}
-                className={open ? "h-11 w-auto max-w-[170px] object-contain" : "w-8 h-8 object-contain"}
+                className={
+                  open
+                    ? "h-16 sm:h-[72px] w-auto max-w-[195px] object-contain aca-logo-adaptive transition-all duration-200"
+                    : "w-10 h-10 object-contain aca-logo-adaptive transition-all duration-200"
+                }
                 alt="ACA ADVISOR S.A.S."
               />
             </div>
           </div>
 
           {open && (
-            <SidebarTrigger className="h-8 w-8 cursor-pointer rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition-colors" />
+            <SidebarTrigger className="h-8 w-8 shrink-0 cursor-pointer rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 transition-colors" />
           )}
         </div>
       </SidebarHeader>
@@ -231,8 +235,8 @@ export function AppSidebar() {
         {/* License Information Card */}
         <div className="mt-2 rounded-2xl bg-gradient-to-br from-[#0F7CB9] to-[#30A9E3] p-3.5 text-center text-white shadow-md shadow-[#0F7CB9]/15">
           <div className="mb-2 flex justify-center">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/20 backdrop-blur-sm shadow-inner">
-              <img src={smallempLogo} alt="ACA ADVISOR" className="w-6 h-6 object-contain" />
+            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-white/95 shadow-sm">
+              <img src={smallempLogo} alt="ACA ADVISOR" className="w-9 h-9 object-contain" />
             </div>
           </div>
           <p className="mb-1 text-xs font-bold uppercase tracking-wider">{t("sidebar_license_info")}</p>
