@@ -89,11 +89,11 @@ export default function NotificationBell({ viewAllPath }) {
             title={t("alerts")}
             aria-label={t("alerts")}
             onClick={goToViewAll}
-            className="relative flex h-9 w-9 cursor-pointer items-center justify-center rounded-full shadow-lg hover:bg-slate-100 transition-colors"
+            className="relative flex h-9 w-9 cursor-pointer items-center justify-center rounded-xl bg-slate-100/90 dark:bg-slate-800/90 border border-slate-200/80 dark:border-slate-700/80 shadow-sm hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
           >
-            <Bell className="h-5 w-5 text-gray-600" />
+            <Bell className="h-4.5 w-4.5 text-slate-700 dark:text-slate-200" />
             {hasAlerts && (
-              <span className="absolute top-1 right-1.5 h-2 w-2 rounded-full bg-red-500" />
+              <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-red-500 ring-2 ring-white dark:ring-slate-800" />
             )}
           </button>
         </DropdownMenuTrigger>

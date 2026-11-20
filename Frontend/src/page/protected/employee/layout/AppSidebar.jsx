@@ -41,7 +41,7 @@ export function EmployeeAppSidebar() {
         </div>
       </SidebarHeader>
 
-      <SidebarContent className="bg-white dark:bg-slate-900 transition-colors duration-200">
+      <SidebarContent className="bg-white dark:bg-[#0D1526] transition-colors duration-200">
         <SidebarGroup>
           <SidebarGroupContent>
             <SidebarMenu className="flex flex-col gap-1 group-data-[collapsible=icon]:px-0 px-3">
@@ -58,7 +58,7 @@ export function EmployeeAppSidebar() {
         </SidebarGroup>
       </SidebarContent>
 
-      <SidebarFooter className="bg-white dark:bg-slate-900 border-t border-slate-100 dark:border-slate-800/80 p-3 group-data-[collapsible=icon]:hidden transition-colors duration-200">
+      <SidebarFooter className="bg-white dark:bg-[#0D1526] border-t border-slate-100 dark:border-slate-800/80 p-3 group-data-[collapsible=icon]:hidden transition-colors duration-200">
         <div className="rounded-2xl bg-gradient-to-br from-[#0F7CB9] to-[#30A9E3] p-3.5 text-center text-white shadow-md shadow-[#0F7CB9]/15">
           <div className="mb-2 flex justify-center">
             <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-white/95 shadow-sm">

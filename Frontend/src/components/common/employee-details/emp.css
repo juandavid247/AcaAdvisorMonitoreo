@@ -12,3 +12,38 @@
 .tbl-scroll::-webkit-scrollbar-thumb { background: #93c5fd; border-radius: 4px; }
 .gradient-btn { background: linear-gradient(135deg,#3b82f6 0%,#2563eb 100%); transition: all .2s; }
 .gradient-btn:hover { box-shadow: 0 4px 16px rgba(37,99,235,0.35); transform: translateY(-1px); }
+
+/* Dark Mode overrides for Employee Details */
+.dark .emp-card {
+  background: #111B2E;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.45);
+}
+.dark .tab-active {
+  background: linear-gradient(135deg, rgba(56, 189, 248, 0.22), rgba(15, 124, 185, 0.28));
+  border: 1.5px solid rgba(56, 189, 248, 0.5);
+  color: #7DD3FC;
+}
+.dark .tab-inactive {
+  background: #162238;
+  border: 1.5px solid rgba(148, 163, 184, 0.24);
+  color: #CBD5E1;
+}
+.dark .tab-deleted {
+  background: rgba(239, 68, 68, 0.14);
+  border: 1.5px solid rgba(248, 113, 113, 0.45);
+  color: #FCA5A5;
+}
+.dark .emp-th {
+  background: linear-gradient(135deg, #162540, #1A2D4D);
+  color: #E2E8F0;
+}
+.dark .tr-hover:hover td {
+  background: rgba(30, 41, 59, 0.72);
+}
+.dark .tbl-scroll::-webkit-scrollbar-track {
+  background: #0D1526;
+}
+.dark .tbl-scroll::-webkit-scrollbar-thumb {
+  background: rgba(56, 189, 248, 0.45);
+}

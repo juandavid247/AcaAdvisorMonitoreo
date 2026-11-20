@@ -72,6 +72,16 @@ export const ResetPassword = () => {
     <div
       className="relative min-h-screen flex flex-col overflow-hidden bg-[#F8FAFC] dark:bg-[#090F1D] text-slate-800 dark:text-slate-100 transition-colors duration-300 aca-hex-bg"
     >
+      {/* Subtle ambient glow for dark & light depth */}
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute -top-32 left-1/2 -translate-x-1/2 h-96 w-[620px] rounded-full bg-[#30A9E3]/10 dark:bg-[#38BDF8]/12 blur-3xl"
+      />
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute -bottom-40 right-1/4 h-80 w-[480px] rounded-full bg-[#3A9F6B]/10 dark:bg-[#4ADE80]/8 blur-3xl"
+      />
+
       {/* Top-right Theme Toggle */}
       <header className="animate-fade-down relative z-10 flex items-center justify-end px-6 sm:px-10 pt-5">
         <ThemeToggle />
@@ -79,31 +89,26 @@ export const ResetPassword = () => {
 
       {/* Centered Main */}
       <main className="relative z-10 flex flex-1 flex-col items-center justify-center px-4 sm:px-6 pb-10 pt-2 w-full">
-        <div className="flex flex-col items-center justify-center max-w-[460px] w-full gap-5">
-          {/* Large Centered Brand Logo */}
-          <div className="animate-fade-down flex justify-center w-full">
-            <img
-              src={empLogo}
-              alt="ACA ADVISOR S.A.S."
-              className="h-32 sm:h-40 md:h-44 w-auto max-w-[360px] sm:max-w-[420px] object-contain drop-shadow-lg aca-logo-adaptive transition-all duration-200"
-            />
-          </div>
-
+        <div className="flex flex-col items-center justify-center max-w-[440px] w-full gap-4">
           <div
-            className="animate-card-rise relative w-full rounded-3xl overflow-hidden px-7 sm:px-11 py-9 border border-slate-200/90 dark:border-slate-700/80 bg-white/95 dark:bg-[#111B2E]/95 backdrop-blur-xl shadow-2xl shadow-sky-500/10 dark:shadow-black/70 transition-all duration-300"
+            className="animate-card-rise relative w-full rounded-3xl overflow-hidden px-7 sm:px-10 pt-9 pb-8 border border-slate-200/90 dark:border-slate-700/70 bg-white/95 dark:bg-[#111B2E]/95 backdrop-blur-xl shadow-2xl shadow-sky-500/10 dark:shadow-[0_24px_60px_-15px_rgba(0,0,0,0.75)] transition-all duration-300"
           >
             {/* Top brand accent bar */}
             <div className="absolute top-0 left-0 right-0 h-1.5 shimmer-bar" />
 
-            <div className="text-center mb-6 mt-1">
-              <span className="text-xs font-bold uppercase tracking-widest text-[#30A9E3] dark:text-[#38BDF8]">
-                ACA ADVISOR S.A.S.
-              </span>
-              <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-[#0F7CB9] dark:text-white mt-1">
+            <div className="flex flex-col items-center text-center mb-6">
+              <div className="mb-4 flex justify-center w-full">
+                <img
+                  src={empLogo}
+                  alt="ACA ADVISOR S.A.S."
+                  className="h-24 sm:h-28 w-auto max-w-[260px] object-contain aca-logo-adaptive transition-all duration-200"
+                />
+              </div>
+              <h2 className="text-lg sm:text-xl font-bold tracking-tight text-[#0F7CB9] dark:text-slate-100">
                 {t("auth_reset_password_title") || "Reset your password"}
               </h2>
               {email && (
-                <p className="mt-1 text-[13px] text-slate-600 dark:text-slate-300 break-all">{email}</p>
+                <p className="mt-1 text-[13px] text-slate-500 dark:text-slate-400 break-all">{email}</p>
               )}
             </div>
 

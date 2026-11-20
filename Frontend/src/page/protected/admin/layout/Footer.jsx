@@ -7,7 +7,7 @@ const Footer = ({ show }) => {
   if (!show) return null;
 
   return (
-    <footer className="w-full bg-slate-100 dark:bg-slate-900 border-t border-slate-200/80 dark:border-slate-800 px-6 py-3.5 flex flex-col-reverse sm:flex-row gap-2 items-center justify-between mt-auto transition-colors duration-200">
+    <footer className="w-full bg-slate-100 dark:bg-[#0D1526] border-t border-slate-200/80 dark:border-slate-800/80 px-6 py-3.5 flex flex-col-reverse sm:flex-row gap-2 items-center justify-between mt-auto transition-colors duration-200">
       <div className="text-slate-500 dark:text-slate-400 text-[11px] sm:text-xs font-medium">
         © {new Date().getFullYear()} <span className="font-semibold text-[#0F7CB9] dark:text-[#38BDF8]">ACA ADVISOR S.A.S.</span> • {t("footer_all_rights") || "Todos los derechos reservados."}
       </div>

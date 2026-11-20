@@ -22,8 +22,8 @@ function Headers({ isConnected }) {
                 </p>
             </div>
             <div className="shrink-0 hidden sm:block">
-                <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
-                    <Activity className="w-10 h-10 text-blue-500" />
+                <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-[#162742] dark:to-[#1E3354] border border-transparent dark:border-slate-700/60 flex items-center justify-center">
+                    <Activity className="w-10 h-10 text-blue-500 dark:text-[#38BDF8]" />
                 </div>
             </div>
         </div>

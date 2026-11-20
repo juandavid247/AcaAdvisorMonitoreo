@@ -204,7 +204,7 @@ export function AppSidebar() {
         </div>
       </SidebarHeader>
 
-      <SidebarContent className="bg-white dark:bg-slate-900 transition-colors duration-200">
+      <SidebarContent className="bg-white dark:bg-[#0D1526] transition-colors duration-200">
         <SidebarGroup>
           <SidebarGroupContent>
             <SidebarMenu className="flex flex-col gap-1 group-data-[collapsible=icon]:px-0 px-3 ">
@@ -221,7 +221,7 @@ export function AppSidebar() {
         </SidebarGroup>
       </SidebarContent>
 
-      <SidebarFooter className="bg-white dark:bg-slate-900 border-t border-slate-100 dark:border-slate-800/80 p-3 group-data-[collapsible=icon]:hidden transition-colors duration-200">
+      <SidebarFooter className="bg-white dark:bg-[#0D1526] border-t border-slate-100 dark:border-slate-800/80 p-3 group-data-[collapsible=icon]:hidden transition-colors duration-200">
         {/* Download Agent Button */}
         <ShimmerButton className="flex items-center justify-center gap-2 shadow-sm border border-[#30A9E3] text-sm py-2 rounded-xl" onClick={() => setAgentDownloadOpen(true)}>
           <span className="flex h-6 w-6 items-center justify-center rounded-full shadow-sm">

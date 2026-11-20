@@ -46,9 +46,9 @@ const RadioPair = ({ value, onChange }) => {
 const Section = ({ title, icon, children }) => (
   <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
     {title && (
-      <div className="flex items-center gap-2.5 px-5 py-3 border-b border-[#CAEDFF]" style={{ background: "#CAEDFF" }}>
+      <div className="flex items-center gap-2.5 px-5 py-3 border-b border-[#CAEDFF] dark:border-slate-700/80 bg-[#CAEDFF] dark:bg-[#162742]">
         {icon}
-        <h3 className="text-[13px] font-extrabold text-gray-800 tracking-tight">{title}</h3>
+        <h3 className="text-[13px] font-extrabold text-gray-800 dark:text-slate-100 tracking-tight">{title}</h3>
       </div>
     )}
     <div className="px-5 py-4">{children}</div>

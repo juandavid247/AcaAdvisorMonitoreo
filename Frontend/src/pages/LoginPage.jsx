@@ -50,21 +50,21 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-[#F8FAFC] dark:bg-[#090F1D] px-4 py-10 aca-hex-bg">
-      <div className="w-full max-w-md flex flex-col items-center gap-5">
-        <img
-          src={empLogo}
-          alt="ACA ADVISOR S.A.S."
-          className="h-32 sm:h-40 w-auto max-w-[360px] object-contain drop-shadow-lg aca-logo-adaptive"
-        />
-
-        <div className="w-full rounded-3xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#111B2E] p-8 shadow-2xl">
-          <div className="text-center">
-            <span className="text-xs font-bold uppercase tracking-widest text-[#30A9E3] dark:text-[#38BDF8]">
-              ACA ADVISOR S.A.S.
-            </span>
-            <h2 className="mt-1 text-2xl font-bold text-[#0F7CB9] dark:text-white">Bienvenido</h2>
-            <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">Inicia sesión en tu cuenta corporativa</p>
+    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[#F8FAFC] dark:bg-[#090F1D] px-4 py-10 aca-hex-bg">
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute -top-32 left-1/2 -translate-x-1/2 h-96 w-[620px] rounded-full bg-[#30A9E3]/10 dark:bg-[#38BDF8]/12 blur-3xl"
+      />
+      <div className="relative z-10 w-full max-w-md flex flex-col items-center gap-4">
+        <div className="relative w-full overflow-hidden rounded-3xl border border-slate-200/90 dark:border-slate-700/70 bg-white/95 dark:bg-[#111B2E]/95 backdrop-blur-xl px-8 pt-9 pb-8 shadow-2xl dark:shadow-[0_24px_60px_-15px_rgba(0,0,0,0.75)]">
+          <div className="flex flex-col items-center text-center">
+            <img
+              src={empLogo}
+              alt="ACA ADVISOR S.A.S."
+              className="mb-4 h-24 sm:h-28 w-auto max-w-[260px] object-contain aca-logo-adaptive"
+            />
+            <h2 className="text-xl font-bold text-[#0F7CB9] dark:text-slate-100">Bienvenido</h2>
+            <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Inicia sesión en tu cuenta corporativa</p>
           </div>
 
           {error && (

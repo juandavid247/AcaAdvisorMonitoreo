@@ -390,14 +390,19 @@ function UsageChart() {
         padding: { left: 10, right: 10 },
       },
       tooltip: {
-        theme: "light",
+        theme: typeof document !== "undefined" && document.documentElement.classList.contains("dark") ? "dark" : "light",
         style: { fontSize: "11px" },
         custom: ({ dataPointIndex }) => {
           const d = chartData[dataPointIndex];
           if (!d) return "";
-          return `<div style="padding:8px 12px;border-radius:8px;background:#fff;box-shadow:0 4px 12px rgba(0,0,0,.1);font-size:12px">
-            <div style="font-weight:700;color:#334155;margin-bottom:2px">${d.fullName}</div>
-            <div style="color:#64748b">${t("webApp.duration")}: ${d.durationDisplay}</div>
+          const dark = typeof document !== "undefined" && document.documentElement.classList.contains("dark");
+          const bg = dark ? "#162238" : "#fff";
+          const bd = dark ? "1px solid rgba(148,163,184,0.28)" : "1px solid #e2e8f0";
+          const titleColor = dark ? "#f8fafc" : "#334155";
+          const subColor = dark ? "#cbd5e1" : "#64748b";
+          return `<div style="padding:8px 12px;border-radius:8px;background:${bg};border:${bd};box-shadow:0 4px 16px rgba(0,0,0,.25);font-size:12px">
+            <div style="font-weight:700;color:${titleColor};margin-bottom:2px">${d.fullName}</div>
+            <div style="color:${subColor}">${t("webApp.duration")}: ${d.durationDisplay}</div>
           </div>`;
         },
       },

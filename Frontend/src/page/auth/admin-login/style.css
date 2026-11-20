@@ -81,8 +81,17 @@
   background-color: rgba(15, 23, 42, 1) !important;
   border-color: #38BDF8 !important;
   box-shadow:
-    0 0 0 3px rgba(56, 189, 248, 0.35),
+    0 0 0 3px rgba(56, 189, 248, 0.3),
     0 4px 16px rgba(0, 0, 0, 0.5) !important;
+}
+
+.dark .emp-input:-webkit-autofill,
+.dark .emp-input:-webkit-autofill:hover,
+.dark .emp-input:-webkit-autofill:focus {
+  -webkit-box-shadow: 0 0 0 1000px #0f172a inset !important;
+  -webkit-text-fill-color: #f8fafc !important;
+  caret-color: #f8fafc !important;
+  transition: background-color 5000s ease-in-out 0s;
 }
 
 /* Error-state focus ring */

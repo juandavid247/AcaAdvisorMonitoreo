@@ -171,8 +171,8 @@ const EmpScreenshotLogs = () => {
                     className="w-full max-h-48 rounded-xl border border-slate-200 object-contain bg-slate-50 cursor-pointer hover:opacity-90 transition-opacity"
                   />
                 ) : (
-                  <div className="w-full h-48 rounded-xl bg-gradient-to-br from-slate-100 to-slate-50 border border-slate-200 flex flex-col items-center justify-center gap-2">
-                    <ImageIcon className="w-10 h-10 text-slate-300" />
+                  <div className="w-full h-48 rounded-xl bg-gradient-to-br from-slate-100 to-slate-50 dark:from-[#0E172A] dark:to-[#162238] border border-slate-200 dark:border-slate-700/80 flex flex-col items-center justify-center gap-2">
+                    <ImageIcon className="w-10 h-10 text-slate-300 dark:text-slate-600" />
                     <span className="text-xs text-slate-400">{t("screenshotLogs.noScreenshot")}</span>
                   </div>
                 )}

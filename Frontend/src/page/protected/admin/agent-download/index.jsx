@@ -178,7 +178,7 @@ const AgentDownloadOverlay = ({ open, onClose }) => {
         {/* ── Step 1: Select Agent Type ── */}
         {step === "select" && (
           <div className="flex flex-col md:flex-row min-h-[480px]">
-            <div className="md:w-[45%] bg-gradient-to-br from-slate-50 to-slate-100 flex items-center justify-center p-10">
+            <div className="md:w-[45%] bg-gradient-to-br from-slate-50 to-slate-100 dark:from-[#0D1526] dark:to-[#162238] flex items-center justify-center p-10">
               <img src={agentImg} alt="Agent" className="w-full max-w-[320px] object-contain" />
             </div>
 
@@ -237,7 +237,7 @@ const AgentDownloadOverlay = ({ open, onClose }) => {
         {/* ── Step 2: Platform & Download ── */}
         {step === "platform" && activeAgentType && (
           <div className="flex flex-col md:flex-row min-h-[480px]">
-            <div className="md:w-[45%] bg-gradient-to-br from-slate-50 to-slate-100 flex items-center justify-center p-10">
+            <div className="md:w-[45%] bg-gradient-to-br from-slate-50 to-slate-100 dark:from-[#0D1526] dark:to-[#162238] flex items-center justify-center p-10">
               <img src={agentImg} alt="Agent" className="w-full max-w-[320px] object-contain" />
             </div>
 
