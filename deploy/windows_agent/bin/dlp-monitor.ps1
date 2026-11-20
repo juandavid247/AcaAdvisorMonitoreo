@@ -14,6 +14,19 @@ $LogFile     = if (Test-Path $LogDir) { Join-Path $LogDir "dlpLog.txt" } else { 
 $MaxLogBytes = 5MB
 $Computer    = $env:COMPUTERNAME
 
+function Get-MachineDeviceId {
+    try {
+        $mguid = (Get-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Cryptography" -Name "MachineGuid" -ErrorAction SilentlyContinue).MachineGuid
+        if ($mguid) { return $mguid.Trim().ToLower() }
+    } catch {}
+    try {
+        $adapter = Get-NetAdapter -ErrorAction SilentlyContinue | Where-Object { $_.Status -eq 'Up' } | Select-Object -First 1
+        if ($adapter -and $adapter.MacAddress) { return ($adapter.MacAddress -replace '-', ':').ToUpper() }
+    } catch {}
+    return ""
+}
+$DeviceId = Get-MachineDeviceId
+
 # Evitar instancias duplicadas
 $mutexCreated = $false
 $mutex = New-Object System.Threading.Mutex($true, "Global\ACAAdvisorDLPMonitor", [ref]$mutexCreated)
@@ -23,10 +36,33 @@ Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
 Add-Type -AssemblyName System.Net.Http
 
+# Habilitar DPI-Aware nativo para capturas guardadas 720p HD nitidas sin borrosidad por escala Windows
+try {
+    Add-Type -TypeDefinition @"
+using System;
+using System.Runtime.InteropServices;
+public static class AcaDpiHelper {
+    [DllImport("user32.dll")]
+    public static extern bool SetProcessDPIAware();
+    [DllImport("user32.dll")]
+    public static extern bool SetProcessDpiAwarenessContext(IntPtr dpiContext);
+    public static void Enable() {
+        try {
+            if (SetProcessDpiAwarenessContext(new IntPtr(-4))) return;
+        } catch {}
+        try { SetProcessDPIAware(); } catch {}
+    }
+}
+"@ -ErrorAction SilentlyContinue
+    [AcaDpiHelper]::Enable()
+} catch {}
+
 $jpegCodec = [System.Drawing.Imaging.ImageCodecInfo]::GetImageEncoders() |
     Where-Object { $_.MimeType -eq 'image/jpeg' } | Select-Object -First 1
 $encParams = New-Object System.Drawing.Imaging.EncoderParameters(1)
-$encParams.Param[0] = New-Object System.Drawing.Imaging.EncoderParameter([System.Drawing.Imaging.Encoder]::Quality, 55L)
+$encParams.Param[0] = New-Object System.Drawing.Imaging.EncoderParameter([System.Drawing.Imaging.Encoder]::Quality, 82L)
+$script:lastSavedScreenHash = ""
+$script:lastSavedScreenTime = (Get-Date).AddMinutes(-10)
 
 function Write-DlpLog($msg) {
     try {
@@ -131,33 +167,49 @@ function Upload-PeriodicScreenshot($apiBaseUrl, $token) {
         $bounds = $screen.Bounds
         if ($bounds.Width -le 0 -or $bounds.Height -le 0) { return }
 
-        $bmp = New-Object System.Drawing.Bitmap($bounds.Width, $bounds.Height)
+        $bmp = New-Object System.Drawing.Bitmap($bounds.Width, $bounds.Height, [System.Drawing.Imaging.PixelFormat]::Format24bppRgb)
         $gfx = [System.Drawing.Graphics]::FromImage($bmp)
         $gfx.CopyFromScreen($bounds.Location, [System.Drawing.Point]::Empty, $bounds.Size)
         $gfx.Dispose()
 
         $targetW = $bounds.Width
         $targetH = $bounds.Height
+        $finalBmp = $bmp
+
         if ($targetW -gt 1280) {
             $ratio = 1280.0 / [double]$targetW
             $targetW = 1280
             $targetH = [int][math]::Round($targetH * $ratio)
+            if (($targetH % 2) -ne 0) { $targetH += 1 }
+
+            $resized = New-Object System.Drawing.Bitmap($targetW, $targetH, [System.Drawing.Imaging.PixelFormat]::Format24bppRgb)
+            $rgfx = [System.Drawing.Graphics]::FromImage($resized)
+            $rgfx.InterpolationMode  = [System.Drawing.Drawing2D.InterpolationMode]::HighQualityBicubic
+            $rgfx.SmoothingMode      = [System.Drawing.Drawing2D.SmoothingMode]::HighQuality
+            $rgfx.PixelOffsetMode    = [System.Drawing.Drawing2D.PixelOffsetMode]::HighQuality
+            $rgfx.CompositingQuality = [System.Drawing.Drawing2D.CompositingQuality]::HighQuality
+            $rgfx.DrawImage($bmp, 0, 0, $targetW, $targetH)
+            $rgfx.Dispose()
+            $bmp.Dispose()
+            $finalBmp = $resized
         }
 
-        $resized = New-Object System.Drawing.Bitmap($targetW, $targetH)
-        $rgfx = [System.Drawing.Graphics]::FromImage($resized)
-        $rgfx.InterpolationMode = [System.Drawing.Drawing2D.InterpolationMode]::HighQualityBilinear
-        $rgfx.DrawImage($bmp, 0, 0, $targetW, $targetH)
-        $rgfx.Dispose()
-        $bmp.Dispose()
-
         $ms = New-Object System.IO.MemoryStream
-        $resized.Save($ms, $jpegCodec, $encParams)
-        $resized.Dispose()
+        $finalBmp.Save($ms, $jpegCodec, $encParams)
+        $finalBmp.Dispose()
         $jpgBytes = $ms.ToArray()
         $ms.Dispose()
 
-        $utcNow = (Get-Date).ToUniversalTime()
+        # Deduplicacion inteligente: omitir subida duplicada si pantalla no cambio en <5 min
+        $sha = [System.Security.Cryptography.SHA256]::Create()
+        $frameHash = ([BitConverter]::ToString($sha.ComputeHash($jpgBytes)) -replace '-', '')
+        $sha.Dispose()
+        $nowTs = Get-Date
+        if ($frameHash -eq $script:lastSavedScreenHash -and (($nowTs - $script:lastSavedScreenTime).TotalSeconds -lt 300)) {
+            return
+        }
+
+        $utcNow = $nowTs.ToUniversalTime()
         $fileName = "screenshot_$($utcNow.ToString('yyyy-MM-dd_HH-mm-ss')).jpg"
 
         $client = New-Object System.Net.Http.HttpClient
@@ -172,7 +224,9 @@ function Upload-PeriodicScreenshot($apiBaseUrl, $token) {
 
         $resp = $client.PostAsync("${apiBaseUrl}/desktop/upload-screenshots", $form).GetAwaiter().GetResult()
         if ($resp.IsSuccessStatusCode) {
-            Write-DlpLog "Screenshot periodico subido ($fileName)"
+            $script:lastSavedScreenHash = $frameHash
+            $script:lastSavedScreenTime = $nowTs
+            Write-DlpLog "Screenshot 720p HD subido ($fileName, $([math]::Round($jpgBytes.Length / 1KB, 1)) KB)"
         }
         $form.Dispose()
         $client.Dispose()
@@ -278,12 +332,25 @@ while ($true) {
             if ($auth.email -and $auth.password) {
                 try {
                     [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
-                    $loginBody = @{ email = $auth.email; password = $auth.password } | ConvertTo-Json -Compress
-                    $res = Invoke-RestMethod -Uri $activeLoginUrl -Method Post -Body $loginBody -ContentType "application/json" -TimeoutSec 12 -ErrorAction Stop
+                    $loginHeaders = @{
+                        "Client-Device" = $Computer
+                        "X-Device-Id"   = $DeviceId
+                    }
+                    $loginBody = @{ email = $auth.email; password = $auth.password; macId = $DeviceId } | ConvertTo-Json -Compress
+                    $res = Invoke-RestMethod -Uri $activeLoginUrl -Method Post -Headers $loginHeaders -Body $loginBody -ContentType "application/json" -TimeoutSec 12 -ErrorAction Stop
                     if ($res -and $res.accessToken) {
                         $activeToken = [string]$res.accessToken
                         $activeEmail = $auth.email
                         $lastPolicySync = $now
+
+                        # Sincronizar token fresco hacia HKCU para mantener aca-agent.exe autenticado tras reinicios
+                        if ($auth.mode -eq "office") {
+                            try {
+                                $hkcuAuth = "HKCU:\Software\screen\empm\auth"
+                                if (-not (Test-Path $hkcuAuth)) { New-Item -Path $hkcuAuth -Force | Out-Null }
+                                Set-ItemProperty -Path $hkcuAuth -Name "token" -Value $activeToken -Force
+                            } catch {}
+                        }
 
                         # Extraer politicas DLP en vivo (emp_desktop retorna "settings")
                         $st = if ($res.settings) { $res.settings } else { $res.setting }
@@ -309,7 +376,7 @@ while ($true) {
                             } elseif ($st.screenshotPeriodSec) {
                                 $ssSec = [int]$st.screenshotPeriodSec
                             }
-                            if ($ssSec -lt 30) { $ssSec = 30 }
+                            if ($ssSec -lt 20) { $ssSec = 20 }
                             $policy.ss_period_sec = $ssSec
 
                             # Listas de bloqueo web y apps

@@ -22,7 +22,23 @@ const agentValidation = async (ws, wss, parseMessage) => {
             ]);
             if (userMetaData.code === 200 && userMetaData.data) {
                 let decoded = userMetaData.data;
-                console.log(`[AGENT-AUTH] Validated user ${decoded.user_id} (${decoded.email})`);
+                const reqDeviceId = (parseMessage.device_id || '').toString().trim().toLowerCase();
+                const expectedDeviceId = (decoded.mac_id || '').toString().trim().toLowerCase();
+                const reqCompName = (parseMessage.computer_name || '').toString().trim().toLowerCase();
+                const expectedCompName = (decoded.computer_name || '').toString().trim().toLowerCase();
+
+                if (reqDeviceId && expectedDeviceId && reqDeviceId !== expectedDeviceId) {
+                    console.warn(`[AGENT-AUTH] Rejected device_id mismatch for user ${decoded.user_id}: got=${reqDeviceId} expected=${expectedDeviceId}`);
+                    return false;
+                }
+                if (reqCompName && expectedCompName && reqCompName !== expectedCompName) {
+                    console.warn(`[AGENT-AUTH] Rejected computer_name mismatch for user ${decoded.user_id}: got=${reqCompName} expected=${expectedCompName}`);
+                    return false;
+                }
+
+                decoded.device_id = decoded.mac_id || parseMessage.device_id || '';
+                decoded.computer_name = decoded.computer_name || parseMessage.computer_name || '';
+                console.log(`[AGENT-AUTH] Validated user ${decoded.user_id} (${decoded.computer_name || decoded.email}, device=${decoded.device_id || 'n/a'})`);
                 return decoded;
             } else {
                 console.log(`[AGENT-AUTH] userMetaData not found for user_id ${userData.user_id}`);

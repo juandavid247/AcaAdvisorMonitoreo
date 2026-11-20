@@ -24,7 +24,7 @@ export class UserFeatureService {
             },
             screenshotPeriodSec: 20,
             screenshotPeriodInSeconds: 20,
-            screenshotQuality: 50,
+            screenshotQuality: 82,
             dataSendingPeriodSec: 30,
             features: {
                 application_usage: '1',

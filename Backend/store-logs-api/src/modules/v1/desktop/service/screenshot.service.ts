@@ -313,34 +313,37 @@ export class ScreenshotService {
                             await fs.writeFile(destPath, fileBuffer);
                         }
 
-                        // Broadcast to Realtime WebSocket and cache latest screenshot in Redis
+                        // Broadcast to Realtime WebSocket and cache latest screenshot in Redis (strictly keyed by canonical user_id)
                         try {
                             if (fileBuffer) {
                                 const b64 = fileBuffer.toString('base64');
                                 const dataUri = `data:image/jpeg;base64,${b64}`;
-                                const userId = (userData as any).user_id || userData.id || userData.employee_id;
-                                const empId = userData.employee_id || userId;
-                                const redisClient = this.redisService.getClient();
-                                await redisClient.set(`latest_screenshot:${userId}`, dataUri, 'EX', 86400);
-                                if (String(empId) !== String(userId)) {
-                                    await redisClient.set(`latest_screenshot:${empId}`, dataUri, 'EX', 86400);
-                                }
-                                await redisClient.publish('channel-image-stream', JSON.stringify({
-                                    user_id: userId,
-                                    employee_id: empId,
-                                    message: 'channel-image-stream',
-                                    parsedMessage: {
-                                        type: 'start_image_stream',
+                                const userId = Number((userData as any).user_id);
+                                const deviceId = (userData as any).mac_id || '';
+                                const computerName = (userData as any).computer_name || '';
+                                if (userId) {
+                                    const redisClient = this.redisService.getClient();
+                                    await redisClient.set(`latest_screenshot:${userId}`, dataUri, 'EX', 86400);
+                                    await redisClient.publish('channel-image-stream', JSON.stringify({
                                         user_id: userId,
-                                        employee_id: empId,
-                                        image0: dataUri,
-                                        screenData0: {
-                                            aspectRatio0: 1.7777777777777777,
-                                            width0: 1920,
-                                            height0: 1080
+                                        device_id: deviceId,
+                                        computer_name: computerName,
+                                        message: 'channel-image-stream',
+                                        parsedMessage: {
+                                            type: 'start_image_stream',
+                                            user_id: userId,
+                                            device_id: deviceId,
+                                            computer_name: computerName,
+                                            quality: 'hd',
+                                            image0: dataUri,
+                                            screenData0: {
+                                                aspectRatio0: 1.7777777777777777,
+                                                width0: 1280,
+                                                height0: 720
+                                            }
                                         }
-                                    }
-                                }));
+                                    }));
+                                }
                             }
                         } catch (broadErr) {
                             console.error('[SCREENSHOT] Error broadcasting stream:', broadErr.message);

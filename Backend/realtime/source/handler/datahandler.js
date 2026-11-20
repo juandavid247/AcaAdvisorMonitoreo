@@ -28,6 +28,9 @@ const onMessageHandler = async (ws, wss, message) => {
             case 'image_request':
                 return Service.handleImageRequest(ws, wss, parsedMessage);
 
+            case 'set_stream_quality':
+                return Service.handleSetStreamQuality(ws, wss, parsedMessage);
+
             case 'check_agent_status': 
                 return Service.checkAgentOnlineStatus(ws, wss, parsedMessage);
 

@@ -60,7 +60,10 @@ function AgentCard({ agent, idx }) {
         );
 
         observer.observe(card);
-        return () => observer.disconnect();
+        return () => {
+            observer.disconnect();
+            stopStreaming(uId);
+        };
     }, [uId, isOnline, startStreaming, stopStreaming]);
 
     const handleClick = useCallback(() => {
@@ -71,18 +74,18 @@ function AgentCard({ agent, idx }) {
         <div
             ref={cardRef}
             onClick={handleClick}
-            className="bg-[#DCF4F5] rounded-xl overflow-hidden cursor-pointer hover:shadow-md transition-shadow"
+            className="bg-[#DCF4F5] dark:bg-[#132238] border border-transparent dark:border-slate-700/70 rounded-xl overflow-hidden cursor-pointer hover:shadow-md dark:hover:border-[#38BDF8]/50 transition-all"
         >
             {/* Live screen preview */}
-            <div className="relative w-full bg-slate-100">
+            <div className="relative w-full bg-slate-100 dark:bg-slate-900">
                 <canvas
                     ref={canvasRef}
                     data-user-id={uId}
                     className="w-full block"
                 />
                 {!isOnline && (
-                    <div className="absolute inset-0 flex items-center justify-center bg-slate-100/80">
-                        <span className="text-[11px] text-slate-400 font-medium">Offline</span>
+                    <div className="absolute inset-0 flex items-center justify-center bg-slate-100/80 dark:bg-slate-900/85">
+                        <span className="text-[11px] text-slate-400 dark:text-slate-400 font-medium">Offline</span>
                     </div>
                 )}
             </div>
@@ -120,7 +123,7 @@ function AgentCard({ agent, idx }) {
                     <p className="text-[13px] font-semibold text-slate-800 truncate">
                         {agent.name}
                     </p>
-                    <p className="text-[11px] text-slate-400 truncate">{agent.email}</p>
+                    <p className="text-[11px] text-slate-400 truncate">{agent.computerName || agent.email}</p>
                 </div>
             </div>
         </div>

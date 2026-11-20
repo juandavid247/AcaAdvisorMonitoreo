@@ -27,11 +27,14 @@ function AgentModal() {
     const modalAgent = useLiveMonitoringStore((s) => s.modalAgent);
     const modalScreenCount = useLiveMonitoringStore((s) => s.modalScreenCount);
     const modalSelectedScreen = useLiveMonitoringStore((s) => s.modalSelectedScreen);
+    const modalQuality = useLiveMonitoringStore((s) => s.modalQuality);
+    const modalResolution = useLiveMonitoringStore((s) => s.modalResolution);
     const recordings = useLiveMonitoringStore((s) => s.recordings);
     const recordingsError = useLiveMonitoringStore((s) => s.recordingsError);
     const recordingsLoading = useLiveMonitoringStore((s) => s.recordingsLoading);
     const closeModal = useLiveMonitoringStore((s) => s.closeModal);
     const selectModalScreen = useLiveMonitoringStore((s) => s.selectModalScreen);
+    const changeModalQuality = useLiveMonitoringStore((s) => s.changeModalQuality);
     const loadRecordings = useLiveMonitoringStore((s) => s.loadRecordings);
 
     const canvasRef = useRef(null);
@@ -64,7 +67,7 @@ function AgentModal() {
                 drawOfflinePlaceholder(canvas);
             }
         }
-    }, [modalAgent?.id]);
+    }, [modalAgent?.uId]);
 
     // Auto-select first video when recordings load
     useEffect(() => {
@@ -148,19 +151,19 @@ function AgentModal() {
 
     return (
         <div
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-xs p-4"
             onClick={handleBackdropClick}
         >
-            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+            <div className="bg-white dark:bg-[#111B2E] border border-slate-200/80 dark:border-slate-700/80 rounded-2xl shadow-2xl w-full max-w-5xl max-h-[92vh] overflow-y-auto">
                 {/* Header */}
-                <div className="flex items-center justify-between p-4 border-b border-slate-100">
+                <div className="flex flex-wrap items-center justify-between gap-2 p-4 border-b border-slate-100 dark:border-slate-800">
                     <div className="flex items-center gap-3">
                         <div className={`w-10 h-10 rounded-full ${avatarColors[0]} flex items-center justify-center text-sm font-bold text-white`}>
                             {initials}
                         </div>
                         <div>
                             <p className="text-sm font-semibold text-slate-800">{modalAgent.name}</p>
-                            <p className="text-[11px] text-slate-400">{modalAgent.email}</p>
+                            <p className="text-[11px] text-slate-400">{modalAgent.computerName || modalAgent.email}</p>
                         </div>
                         <span className={`ml-2 inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-full ${
                             isOnline ? "bg-green-100 text-green-600" : "bg-red-100 text-red-500"
@@ -168,8 +171,35 @@ function AgentModal() {
                             <span className={`w-1.5 h-1.5 rounded-full ${isOnline ? "bg-green-500" : "bg-red-400"}`} />
                             {isOnline ? "Live" : "Offline"}
                         </span>
+                        {!showRecordings && modalResolution && (
+                            <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-300 border border-transparent dark:border-slate-700">
+                                {modalResolution}
+                            </span>
+                        )}
                     </div>
                     <div className="flex items-center gap-2">
+                        {!showRecordings && isOnline && (
+                            <div className="flex items-center bg-slate-100 dark:bg-slate-800/90 border border-transparent dark:border-slate-700 rounded-lg p-0.5 gap-0.5" title="Calidad de transmisión en vivo">
+                                {[
+                                    { key: "sd", label: "SD" },
+                                    { key: "hd", label: "720p HD" },
+                                    { key: "fhd", label: "1080p" },
+                                ].map((q) => (
+                                    <button
+                                        key={q.key}
+                                        type="button"
+                                        onClick={() => changeModalQuality(q.key)}
+                                        className={`px-2 py-1 rounded-md text-[11px] font-medium transition-colors ${
+                                            modalQuality === q.key
+                                                ? "bg-blue-500 text-white shadow-sm"
+                                                : "text-slate-500 dark:text-slate-300 hover:text-slate-700 dark:hover:text-white"
+                                        }`}
+                                    >
+                                        {q.label}
+                                    </button>
+                                ))}
+                            </div>
+                        )}
                         {modalScreenCount > 1 && !showRecordings && (
                             <div className="flex items-center gap-1">
                                 {Array.from({ length: modalScreenCount }, (_, i) => (
@@ -206,7 +236,7 @@ function AgentModal() {
                 {/* Screen */}
                 <div className="relative bg-slate-900">
                     {!showRecordings || !currentVideoSrc ? (
-                        <canvas ref={canvasRef} className="w-full block" style={{ minHeight: "300px" }} />
+                        <canvas ref={canvasRef} data-user-id={modalAgent.uId} className="w-full block" style={{ minHeight: "300px" }} />
                     ) : (
                         <video
                             ref={videoRef}

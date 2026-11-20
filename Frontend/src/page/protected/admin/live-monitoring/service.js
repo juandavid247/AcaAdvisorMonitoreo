@@ -86,6 +86,7 @@ const getAgents = async ({ locationId = "all", departmentId = "all", employeeId 
                 uId,
                 employeeId,
                 name,
+                computerName: emp.computer_name || "",
                 email: emp.email || "",
                 avatar: emp.profile_image || "",
                 status: "offline",

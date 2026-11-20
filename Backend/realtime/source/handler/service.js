@@ -6,8 +6,40 @@ const adminValidation = require('../auth/adminValidation');
 // Initialize objects to store connected agents and image requests
 const connectedAgents = {};
 const imageRequests = {};
+const streamQualityRequests = {}; // { [agentUserId]: { [viewerId]: 'sd' | 'hd' | 'fhd' } }
 let organizationRealTime = {};
 let cameraStreamRequests = {};
+
+const QUALITY_RANK = { sd: 1, hd: 2, fhd: 3 };
+const normalizeQuality = (q) => {
+    const v = String(q || 'sd').trim().toLowerCase();
+    if (v === 'fhd' || v === '1080p' || v === 'high') return 'fhd';
+    if (v === 'hd' || v === '720p' || v === 'medium') return 'hd';
+    return 'sd';
+};
+
+const computeEffectiveQuality = (agentUserId) => {
+    const viewers = imageRequests[agentUserId] || [];
+    if (viewers.length === 0) return 'idle';
+    const qMap = streamQualityRequests[agentUserId] || {};
+    let best = 'sd';
+    for (const vid of viewers) {
+        const q = normalizeQuality(qMap[vid] || 'sd');
+        if (QUALITY_RANK[q] > QUALITY_RANK[best]) best = q;
+    }
+    return best;
+};
+
+const notifyAgentQuality = (agentUserId) => {
+    const agentWs = connectedAgents[agentUserId];
+    if (!agentWs || agentWs === "Dummy user" || agentWs.readyState !== WebSocket.OPEN) return;
+    const eff = computeEffectiveQuality(agentUserId);
+    if (eff === 'idle') {
+        agentWs.send("User is disconnected, please stop sending images");
+    } else {
+        agentWs.send(`Start sending image - user is waiting | quality:${eff}`);
+    }
+};
 
 
 const { publishToChannel, subscribeToChannel, getAsync, setAsync, delAsync, keysAsync, getUserMetaData } = require("../auth/redis");
@@ -36,20 +68,27 @@ subscribeToChannel("channel-auth", (message) => {
 subscribeToChannel("channel-image-stream", (message) => {
     message = parseIfString(message);
     switch (message?.message) {
-        case "channel-image-stream":
-            const reqSet = new Set([
-                ...(imageRequests[message.user_id] || []),
-                ...(message.employee_id ? (imageRequests[message.employee_id] || []) : [])
-            ]);
+        case "channel-image-stream": {
+            const targetUid = message.user_id;
+            if (!targetUid) break;
+            const reqSet = new Set(imageRequests[targetUid] || []);
+            const sanitizedPayload = {
+                ...(message.parsedMessage || {}),
+                user_id: Number(targetUid) || targetUid,
+                device_id: message.device_id || message.parsedMessage?.device_id || '',
+                computer_name: message.computer_name || message.parsedMessage?.computer_name || ''
+            };
+            delete sanitizedPayload.employee_id;
             reqSet.forEach(agentId => {
                 const agentWs = connectedAgents[agentId];
                 if (agentWs != "Dummy user" && agentWs && agentWs.readyState === WebSocket.OPEN) {
-                    if(agentWs.isScreenCast && !agentWs.isRealTimeCards && !agentWs.isWebCamStream) {
-                        agentWs.send(JSON.stringify({...message.parsedMessage, user_id: message.user_id, employee_id: message.employee_id}));
+                    if (agentWs.isScreenCast && !agentWs.isRealTimeCards && !agentWs.isWebCamStream) {
+                        agentWs.send(JSON.stringify(sanitizedPayload));
                     }
                 }
             });
             break;
+        }
         default:
             break;
     }
@@ -85,29 +124,51 @@ subscribeToChannel("channel-update-image-request", (message) => {
     message = parseIfString(message);
     switch (message?.message) {
         case "channel-update-image-request":
-            imageRequests[message.user_id] = [];
+            if (!imageRequests[message.user_id]) imageRequests[message.user_id] = [];
             break;
         case "channel-update-image-request2":
-            if(imageRequests[message.user_id]) imageRequests[message.user_id].push(message.id);
-            else {
-                imageRequests[message.user_id] = [];
+            if (!imageRequests[message.user_id]) imageRequests[message.user_id] = [];
+            if (!imageRequests[message.user_id].includes(message.id)) {
                 imageRequests[message.user_id].push(message.id);
             }
+            if (!streamQualityRequests[message.user_id]) streamQualityRequests[message.user_id] = {};
+            streamQualityRequests[message.user_id][message.id] = normalizeQuality(message.quality || streamQualityRequests[message.user_id][message.id] || 'sd');
+            notifyAgentQuality(message.user_id);
+            break;
+        case "setStreamQualityViewer":
+            if (!imageRequests[message.user_id]) imageRequests[message.user_id] = [];
+            if (!imageRequests[message.user_id].includes(message.id)) {
+                imageRequests[message.user_id].push(message.id);
+            }
+            if (!streamQualityRequests[message.user_id]) streamQualityRequests[message.user_id] = {};
+            streamQualityRequests[message.user_id][message.id] = normalizeQuality(message.quality);
+            notifyAgentQuality(message.user_id);
+            break;
+        case "removeImageRequestViewer":
+            if (streamQualityRequests[message.user_id]) {
+                delete streamQualityRequests[message.user_id][message.id];
+            }
+            if (imageRequests[message.user_id]) {
+                imageRequests[message.user_id] = imageRequests[message.user_id].filter(id => id !== message.id);
+                if (imageRequests[message.user_id].length === 0) {
+                    delete imageRequests[message.user_id];
+                    delete streamQualityRequests[message.user_id];
+                }
+            }
+            notifyAgentQuality(message.user_id);
             break;
         case "channel-update-image-request3":
-            if (connectedAgents[message.user_id] && connectedAgents[message.user_id] !== "Dummy user") {
-                connectedAgents[message.user_id].send('Start sending image - user is waiting')
-            }
+            notifyAgentQuality(message.user_id);
             break;
         case "handleFEControl":
             const agentWs = connectedAgents[message.user_id];
-            if (agentWs && agentWs !== "Dummy user") {
+            if (agentWs && agentWs !== "Dummy user" && agentWs.readyState === WebSocket.OPEN) {
                 agentWs.send(JSON.stringify(message.payload));
             }
             break;
         case "startLatencyTestAgent":
             const agentSocketWS = connectedAgents[message.user_id];
-            if (agentSocketWS && agentSocketWS !== "Dummy user") {
+            if (agentSocketWS && agentSocketWS !== "Dummy user" && agentSocketWS.readyState === WebSocket.OPEN) {
                 agentSocketWS.send('Start Latency Test');
             }
             break;
@@ -134,10 +195,13 @@ subscribeToChannel("channel-update-image-request", (message) => {
             }
             break;
         case "deleteConnectedAgents":
-            delete connectedAgents[message.user_id];
+            if (!message.socket_id || connectedAgents[message.user_id] === "Dummy user" || connectedAgents[message.user_id]?.socket_id === message.socket_id) {
+                delete connectedAgents[message.user_id];
+            }
             break;
         case "deleteImageRequest":
             delete imageRequests[message.user_id];
+            delete streamQualityRequests[message.user_id];
             break;
         case "admin_request_webcam_stream":
             // Handle admin request for webcam stream find connected agent and send message to agent to start webcam stream
@@ -147,7 +211,7 @@ subscribeToChannel("channel-update-image-request", (message) => {
                 adminWebcamRequest.send(JSON.stringify({ type: "admin_request_webcam_stream", message: "User is connected for web cam stream" }));
             }
             if(!cameraStreamRequests[userId]) cameraStreamRequests[userId] = [message.frontend_user_id];
-            else cameraStreamRequests[userId].push(message.frontend_user_id);
+            else if (!cameraStreamRequests[userId].includes(message.frontend_user_id)) cameraStreamRequests[userId].push(message.frontend_user_id);
             break;
         case "admin_request_webcam_stream_select":
             let userIdSelect = message.user_id;
@@ -155,6 +219,7 @@ subscribeToChannel("channel-update-image-request", (message) => {
             if (adminWebcamRequestSelect !== "Dummy user" && adminWebcamRequestSelect && adminWebcamRequestSelect.readyState === WebSocket.OPEN) {
                 adminWebcamRequestSelect.send(JSON.stringify({ type: "admin_request_webcam_stream_selected_screen", message: message.parsedMessage }));
             }
+            break;
         case "admin_disconnected": 
             // Handle admin disconnection for webcam stream
             Object.keys(cameraStreamRequests).forEach(async (requestedUserId) => {
@@ -166,6 +231,7 @@ subscribeToChannel("channel-update-image-request", (message) => {
                     }
                 }
             });
+            break;
         default:
             break;
     }
@@ -177,11 +243,15 @@ subscribeToChannel("channel-update-realtime-activity", (message) => {
     switch (message?.message) {
         case "agent_auth":
             organizationRealTime[message.organization_id] = organizationRealTime[message.organization_id] || { frontend: [], agents: [] };
-            organizationRealTime[message.organization_id].agents.push(message.user_id);
+            if (!organizationRealTime[message.organization_id].agents.includes(message.user_id)) {
+                organizationRealTime[message.organization_id].agents.push(message.user_id);
+            }
             break;
         case "admin_auth":
             organizationRealTime[message.organization_id] = organizationRealTime[message.organization_id] || { frontend: [], agents: [] };
-            organizationRealTime[message.organization_id].frontend.push(message.user_id);
+            if (!organizationRealTime[message.organization_id].frontend.includes(message.user_id)) {
+                organizationRealTime[message.organization_id].frontend.push(message.user_id);
+            }
             break;
         case "user_connected_to_dashboard_for_activity":
             for (const agent_id of (organizationRealTime[message.organization_id]?.['agents'] || [])) {
@@ -222,18 +292,30 @@ const handleAgentAuth = async (ws, wss, parsedMessage) => {
     try {
         const agentData = await agentValidation(ws, wss, parsedMessage);
         if (agentData) {
-            connectedAgents[agentData.user_id] = ws;
-            ws.user_id = agentData.user_id;
+            const canonicalUid = Number(agentData.user_id) || agentData.user_id;
+            const prevWs = connectedAgents[canonicalUid];
+            if (prevWs && prevWs !== "Dummy user" && prevWs !== ws) {
+                try {
+                    if (prevWs.readyState === WebSocket.OPEN || prevWs.readyState === WebSocket.CONNECTING) {
+                        prevWs.close(4001, 'Replaced by newer agent session');
+                    }
+                } catch (e) {}
+            }
+
+            ws.socket_id = `${canonicalUid}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+            connectedAgents[canonicalUid] = ws;
+            ws.user_id = canonicalUid;
             ws.employee_id = agentData.employee_id;
             ws.organization_id = agentData.organization_id;
+            ws.device_id = (agentData.device_id || agentData.mac_id || '').toString().trim();
+            ws.computer_name = (agentData.computer_name || '').toString().trim();
 
-            await publishToChannel("channel-update-realtime-activity", JSON.stringify({ user_id: agentData.user_id, message: "agent_auth", organization_id: agentData.organization_id }));
-            await publishToChannel("channel-auth", JSON.stringify({ user_id: agentData.user_id, message: "Agent Auth" }));
+            await publishToChannel("channel-update-realtime-activity", JSON.stringify({ user_id: canonicalUid, message: "agent_auth", organization_id: agentData.organization_id }));
+            await publishToChannel("channel-auth", JSON.stringify({ user_id: canonicalUid, message: "Agent Auth" }));
 
             ws.send('Agent authenticated successfully');
-            if ((imageRequests[agentData.user_id] && imageRequests[agentData.user_id].length > 0) ||
-                (agentData.employee_id && imageRequests[agentData.employee_id] && imageRequests[agentData.employee_id].length > 0)) {
-                ws.send('Start sending image - user is waiting');
+            if (imageRequests[canonicalUid] && imageRequests[canonicalUid].length > 0) {
+                notifyAgentQuality(canonicalUid);
             }
             return;
         } else {
@@ -285,20 +367,39 @@ const handleReportAuth = async (ws, wss, parsedMessage) => {
 
 const handleStartImageStream = async (ws, wss, parsedMessage) => {
     if (!ws.user_id) return ws.close();
+    // Ignore stale frames from a superseded agent WebSocket
+    if (connectedAgents[ws.user_id] && connectedAgents[ws.user_id] !== ws) return;
+
+    // Enforce machine identifier match when provided on frame
+    const frameDeviceId = (parsedMessage?.device_id || '').toString().trim().toLowerCase();
+    const expectedDeviceId = (ws.device_id || '').toString().trim().toLowerCase();
+    if (frameDeviceId && expectedDeviceId && frameDeviceId !== expectedDeviceId) {
+        console.warn(`[REALTIME] Dropped frame with mismatched device_id=${frameDeviceId} on user_id=${ws.user_id} (expected=${expectedDeviceId})`);
+        return;
+    }
+
     if (parsedMessage && parsedMessage.image0) {
         const imgVal = parsedMessage.image0.startsWith('data:')
             ? parsedMessage.image0
             : `data:image/jpeg;base64,${parsedMessage.image0}`;
         setAsync(`latest_screenshot:${ws.user_id}`, imgVal, 'EX', 86400).catch(() => {});
-        if (ws.employee_id && String(ws.employee_id) !== String(ws.user_id)) {
-            setAsync(`latest_screenshot:${ws.employee_id}`, imgVal, 'EX', 86400).catch(() => {});
-        }
     }
+
+    const cleanFrame = {
+        ...parsedMessage,
+        user_id: ws.user_id,
+        device_id: ws.device_id || '',
+        computer_name: ws.computer_name || '',
+        quality: parsedMessage?.quality ? normalizeQuality(parsedMessage.quality) : 'sd'
+    };
+    delete cleanFrame.employee_id;
+
     await publishToChannel("channel-image-stream", JSON.stringify({
         user_id: ws.user_id,
-        employee_id: ws.employee_id,
+        device_id: ws.device_id || '',
+        computer_name: ws.computer_name || '',
         message: "channel-image-stream",
-        parsedMessage
+        parsedMessage: cleanFrame
     }));
 };
 
@@ -316,24 +417,28 @@ const handleImageRequest = async (ws, wss, parsedMessage) => {
     ws.isRealTimeCards = false;
     ws.isWebCamStream = false;
 
-    const requestedUserId = parsedMessage.requested_user_id;
+    const requestedUserId = Number(parsedMessage.requested_user_id) || parsedMessage.requested_user_id;
     if (!requestedUserId) return ws.send('Invalid requested_user_id');
+    const requestedQuality = normalizeQuality(parsedMessage.quality || 'sd');
 
     if (!imageRequests[requestedUserId]) {
         imageRequests[requestedUserId] = [];
         await publishToChannel("channel-update-image-request", JSON.stringify({ user_id: requestedUserId, message: "channel-update-image-request" }));
     }
 
-    await publishToChannel("channel-update-image-request", JSON.stringify({ user_id: requestedUserId, message: "channel-update-image-request3", }));
+    await publishToChannel("channel-update-image-request", JSON.stringify({
+        user_id: requestedUserId,
+        message: "channel-update-image-request2",
+        id: ws.user_id,
+        quality: requestedQuality
+    }));
 
-
-    await publishToChannel("channel-update-image-request", JSON.stringify({ user_id: requestedUserId, message: "channel-update-image-request2", id: ws.user_id }));
-
-    // Send latest screenshot immediately if available (from Redis cache or shared volume)
+    // Send latest screenshot immediately ONLY to the requesting viewer
     try {
         let cachedImg = await getAsync(`latest_screenshot:${requestedUserId}`);
+        let userMeta = null;
         if (!cachedImg) {
-            const userMeta = await getUserMetaData(requestedUserId);
+            userMeta = await getUserMetaData(requestedUserId);
             const email = userMeta?.data?.email;
             if (email) {
                 const fs = require('fs');
@@ -355,10 +460,13 @@ const handleImageRequest = async (ws, wss, parsedMessage) => {
             }
         }
 
-        if (cachedImg) {
+        if (cachedImg && ws.readyState === WebSocket.OPEN) {
+            if (!userMeta) userMeta = await getUserMetaData(requestedUserId).catch(() => null);
             const streamPayload = {
                 type: 'start_image_stream',
                 user_id: requestedUserId,
+                device_id: userMeta?.data?.mac_id || '',
+                computer_name: userMeta?.data?.computer_name || '',
                 image0: cachedImg,
                 screenData0: {
                     aspectRatio0: 1.7777777777777777,
@@ -366,10 +474,7 @@ const handleImageRequest = async (ws, wss, parsedMessage) => {
                     height0: 1080
                 }
             };
-            if (ws.readyState === 1) { // WebSocket.OPEN
-                ws.send(JSON.stringify(streamPayload));
-            }
-            await publishToChannel("channel-image-stream", JSON.stringify({ user_id: requestedUserId, message: "channel-image-stream", parsedMessage: streamPayload }));
+            ws.send(JSON.stringify(streamPayload));
         }
     } catch (fetchErr) {
         console.error('[REALTIME] Error delivering immediate screenshot:', fetchErr.message);
@@ -381,7 +486,7 @@ const handleImageRequest = async (ws, wss, parsedMessage) => {
 const onCloseHandler = async (ws) => {
     const user_id = ws.user_id;
     if (user_id && connectedAgents[user_id] === ws) {
-        await publishToChannel("channel-update-image-request", JSON.stringify({ user_id: user_id, message: "deleteConnectedAgents", }));
+        await publishToChannel("channel-update-image-request", JSON.stringify({ user_id: user_id, socket_id: ws.socket_id || null, message: "deleteConnectedAgents" }));
     }
 
     if (ws.organization_id && ws.recevingImage) {
@@ -389,13 +494,15 @@ const onCloseHandler = async (ws) => {
         const value = await delAsync(key);
     }
 
-    // Remove the closed WebSocket from imageRequests
+    // Remove the closed WebSocket from imageRequests and recalc stream quality
     Object.keys(imageRequests).forEach(async (requestedUserId) => {
-        imageRequests[requestedUserId] = imageRequests[requestedUserId].filter(id => id !== user_id);
-        if (imageRequests[requestedUserId].length === 0) {
-            await publishToChannel("channel-update-image-request", JSON.stringify({ user_id: requestedUserId, message: "deleteImageRequest", }));
-            await publishToChannel("channel-update-image-request", JSON.stringify({ user_id: requestedUserId, message: "closeHandler" }));
-        }
+        const hadViewer = imageRequests[requestedUserId].includes(user_id);
+        if (!hadViewer) return;
+        await publishToChannel("channel-update-image-request", JSON.stringify({
+            user_id: Number(requestedUserId) || requestedUserId,
+            id: user_id,
+            message: "removeImageRequestViewer"
+        }));
     });
 
 
@@ -466,7 +573,7 @@ const handleSystemStatusRecordSend = async (ws, wss, parsedMessage) => {
 /* Below Code is for Real time dashboard activity */
 
 const getActiveOnlineAgents = async (orgId) => {
-    const active = new Set(organizationRealTime[orgId]?.agents || []);
+    const active = new Set((organizationRealTime[orgId]?.agents || []).map(Number).filter(Boolean));
     try {
         if (typeof keysAsync === "function") {
             const keys = await keysAsync("*_agent_request");
@@ -477,8 +584,7 @@ const getActiveOnlineAgents = async (orgId) => {
                         const meta = await getUserMetaData(uid);
                         if (meta && meta.code === 200 && meta.data) {
                             if (String(meta.data.organization_id) === String(orgId)) {
-                                active.add(Number(uid));
-                                if (meta.data.employee_id) active.add(Number(meta.data.employee_id));
+                                // Strictly return canonical user_id (never mix employee_id into user_id set)
                                 if (meta.data.user_id) active.add(Number(meta.data.user_id));
                             }
                         }
@@ -566,9 +672,28 @@ const handleAgentIdleAlert = async (ws, wss, parsedMessage) => {
 };
 
 
+const handleSetStreamQuality = async (ws, wss, parsedMessage) => {
+    if (!ws.user_id) return ws.close();
+    const requestedUserId = Number(parsedMessage.requested_user_id) || parsedMessage.requested_user_id;
+    if (!requestedUserId) return;
+    const requestedQuality = normalizeQuality(parsedMessage.quality || 'sd');
+    return await publishToChannel("channel-update-image-request", JSON.stringify({
+        user_id: requestedUserId,
+        id: ws.user_id,
+        quality: requestedQuality,
+        message: "setStreamQualityViewer"
+    }));
+};
+
 const handleCloseAgentDataStream = async (ws, wss, parsedMessage) => {
-    if(!ws.user_id) return ws.close();
-    return await publishToChannel("channel-update-image-request", JSON.stringify({ user_id: parsedMessage.requested_user_id, message: "closeHandler" }));
+    if (!ws.user_id) return ws.close();
+    const requestedUserId = Number(parsedMessage.requested_user_id) || parsedMessage.requested_user_id;
+    if (!requestedUserId) return;
+    return await publishToChannel("channel-update-image-request", JSON.stringify({
+        user_id: requestedUserId,
+        id: ws.user_id,
+        message: "removeImageRequestViewer"
+    }));
 }
 
 const handleAdminRequestWebcamStream = async (ws, wss, parsedMessage) => {
@@ -608,6 +733,7 @@ module.exports = {
     handleFeAuth,
     handleStartImageStream,
     handleImageRequest,
+    handleSetStreamQuality,
     onCloseHandler,
     checkAgentOnlineStatus,
     handleFeControl,

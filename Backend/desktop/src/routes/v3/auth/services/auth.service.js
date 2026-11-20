@@ -46,12 +46,14 @@ class AuthService {
         try {
             if (!req.body || !req.body.email) {
                 const clientDevice = req.headers['client-device'] || '';
-                const resolvedEmp = await authModel.getLatestEmployeeByDevice(clientDevice);
+                const reqMacId = (req.body && req.body.macId) || req.headers['x-device-id'] || '';
+                const resolvedEmp = await authModel.getLatestEmployeeByDevice(clientDevice, reqMacId);
                 if (resolvedEmp) {
                     req.body = {
                         ...req.body,
                         email: resolvedEmp.email,
-                        password: resolvedEmp.password || ''
+                        password: resolvedEmp.password || '',
+                        ...(reqMacId ? { macId: reqMacId } : {})
                     };
                 }
             }
@@ -97,7 +99,8 @@ class AuthService {
                 }
                 if (!user) {
                     const clientDevice = req.headers['client-device'] || '';
-                    const fallbackEmp = await authModel.getLatestEmployeeByDevice(clientDevice);
+                    const reqMacId = userData.macId || req.headers['x-device-id'] || '';
+                    const fallbackEmp = await authModel.getLatestEmployeeByDevice(clientDevice, reqMacId);
                     if (fallbackEmp) {
                         [user] = await authModel.getUserDetails({ email: fallbackEmp.email });
                         if (user) {
@@ -114,52 +117,67 @@ class AuthService {
                 }
             }
 
-            // Auto-register employee if user is connecting from agent and doesn't exist yet
+            // Auto-register employee if user is connecting from agent and doesn't exist yet (strictly 1 per physical machine)
             if (!user) {
                 try {
-                    const clientDevice = (req.headers['client-device'] || userData.macId || 'Windows-PC').toString().trim();
+                    const clientDevice = (req.headers['client-device'] || '').toString().trim();
+                    const reqMacId = (userData.macId || req.headers['x-device-id'] || '').toString().trim();
                     const rawEmail = (userData.email || '').toString().trim();
                     const orgId = 1;
-                    const [defaultLocDept] = await authModel.getDefaultLocationAndDepartment(orgId);
-                    const [role] = await authModel.getEmployeeRole('Employee', orgId);
 
-                    if (defaultLocDept && role) {
-                        let autoUsername = rawEmail.includes('@') ? rawEmail.split('@')[0] : (clientDevice || 'employee');
-                        if (autoUsername.includes('_')) {
-                            // Extract username from synthetic email format
-                            const parts = rawEmail.split('@');
-                            if (parts.length > 1) autoUsername = parts[1].split('.')[0] || autoUsername;
+                    // Deduplicate strictly by MachineGuid / computer_name before creating anything
+                    const existingByMachine = await authModel.getUserByMachineIdOrComputerName({
+                        macId: reqMacId,
+                        computerName: clientDevice,
+                        organizationId: orgId
+                    });
+                    if (existingByMachine) {
+                        [user] = await authModel.getUserDetailsById(existingByMachine.user_id);
+                        if (user) {
+                            userData.email = user.email;
                         }
-                        let autoFirstName = clientDevice || autoUsername;
-                        let autoLastName = 'Agent';
-                        let autoEmail = rawEmail || `${autoUsername}@empmonitor.local`;
+                    } else if (clientDevice || reqMacId) {
+                        const [defaultLocDept] = await authModel.getDefaultLocationAndDepartment(orgId);
+                        const [role] = await authModel.getEmployeeRole('Employee', orgId);
 
-                        const userCreated = await authModel.insertUserDetails({
-                            first_name: autoFirstName,
-                            last_name: autoLastName,
-                            email: autoEmail,
-                            a_email: autoEmail,
-                            username: autoUsername,
-                            computerName: clientDevice,
-                            macId: userData.macId || '',
-                            isActiveDirectory: 0,
-                            date_join: moment().format('YYYY-MM-DD')
-                        });
+                        if (defaultLocDept && role) {
+                            let autoUsername = rawEmail.includes('@') ? rawEmail.split('@')[0] : (clientDevice || 'employee');
+                            if (autoUsername.includes('_')) {
+                                // Extract username from synthetic email format
+                                const parts = rawEmail.split('@');
+                                if (parts.length > 1) autoUsername = parts[1].split('.')[0] || autoUsername;
+                            }
+                            let autoFirstName = clientDevice ? `${clientDevice} -` : autoUsername;
+                            let autoLastName = autoUsername || 'Agent';
+                            let autoEmail = rawEmail || `${reqMacId || clientDevice}_@${autoUsername}.OjUpRAB`;
 
-                        if (userCreated && userCreated.insertId) {
-                            const empCreated = await authModel.createEmploye(
-                                userCreated.insertId,
-                                orgId,
-                                defaultLocDept.location_id,
-                                defaultLocDept.department_id,
-                                defaultLocDept.rules,
-                                defaultLocDept.timezone,
-                                autoUsername
-                            );
-                            if (empCreated && empCreated.insertId) {
-                                await authModel.createUserRoleMapping(userCreated.insertId, role.id, defaultLocDept.organization_user_id);
-                                [user] = await authModel.getUserDetailsById(userCreated.insertId);
-                                console.log(`== Auto-registered new desktop agent: ${autoFirstName} (${autoEmail}) ==`);
+                            const userCreated = await authModel.insertUserDetails({
+                                first_name: autoFirstName,
+                                last_name: autoLastName,
+                                email: autoEmail,
+                                a_email: autoEmail,
+                                username: autoUsername,
+                                computerName: clientDevice || autoUsername,
+                                macId: reqMacId,
+                                isActiveDirectory: 0,
+                                date_join: moment().format('YYYY-MM-DD')
+                            });
+
+                            if (userCreated && userCreated.insertId) {
+                                const empCreated = await authModel.createEmploye(
+                                    userCreated.insertId,
+                                    orgId,
+                                    defaultLocDept.location_id,
+                                    defaultLocDept.department_id,
+                                    defaultLocDept.rules,
+                                    defaultLocDept.timezone,
+                                    autoUsername
+                                );
+                                if (empCreated && empCreated.insertId) {
+                                    await authModel.createUserRoleMapping(userCreated.insertId, role.id, defaultLocDept.organization_user_id);
+                                    [user] = await authModel.getUserDetailsById(userCreated.insertId);
+                                    console.log(`== Auto-registered new desktop agent: ${autoFirstName} (${autoEmail}) ==`);
+                                }
                             }
                         }
                     }
@@ -216,6 +234,7 @@ class AuthService {
             setting.dlpFeatures.app_block = setting.dlpFeatures.app_block ?? "0";
             setting.dlpFeatures.web_block = setting.dlpFeatures.web_block ?? "0";
             setting.screenshotPeriodSec = 20;
+            setting.screenshotQuality = 82;
             setting.dataSendingPeriodSec = 30;
             if (!setting.screenshot) setting.screenshot = {};
             setting.screenshot.frequencyPerHour = 180;
@@ -313,19 +332,20 @@ class AuthService {
             }
             const agentTtl = Math.max(parseInt(process.env.MAX_REQUEST_ALLOWED_TIMEFRAME) || 300, 300);
             await redis.setAsync(`${user.user_id}_agent_request`, 1, 'EX', agentTtl);
-            if (user.employee_id && String(user.employee_id) !== String(user.user_id)) {
-                await redis.setAsync(`${user.employee_id}_agent_request`, 1, 'EX', agentTtl);
-            }
             const settingsPayload = { ...setting, data: setting };
             res.json({
                 success: true, accessToken,
                 identifier: shortnerService.shorten(+process.env.SHORTNER_DEFAULT_ADDED_VALUE + user.user_id),
+                user_id: user.user_id,
+                employee_id: user.employee_id,
+                computer_name: user.computer_name || '',
+                mac_id: user.mac_id || '',
                 name: `${user.first_name} ${user.last_name}`, settings: settingsPayload, roomId
             });
 
             // redis manipulation for active token
             if (accessToken) {
-                await redis.setAsync(`agent:active:token:${user.employee_id}`, accessToken, 'EX', 60 * 60 * 11);
+                await redis.setAsync(`agent:active:token:${user.employee_id}`, accessToken, 'EX', Common.getTime(process.env.JWT_TOKEN_LIFE));
             }
 
             // update only new room id
@@ -492,6 +512,7 @@ class AuthService {
             setting.dlpFeatures.app_block = setting.dlpFeatures.app_block ?? "0";
             setting.dlpFeatures.web_block = setting.dlpFeatures.web_block ?? "0";
             setting.screenshotPeriodSec = 20;
+            setting.screenshotQuality = 82;
             setting.dataSendingPeriodSec = 30;
             if (!setting.screenshot) setting.screenshot = {};
             setting.screenshot.frequencyPerHour = 180;
@@ -660,6 +681,38 @@ class AuthService {
 
             const [userData] = await authModel.getUserDetails({ email: tempEmail, noAlterEmailCheck: config.CUSTOM_LOGIN_REGISTER_AD_NO_SWAP.includes(organizationId) });
             if (!userData) {
+                // Strictly enforce 1 user per physical PC (by MachineGuid/mac_id or computer_name)
+                const existingMachineUser = await authModel.getUserByMachineIdOrComputerName({
+                    macId,
+                    computerName,
+                    organizationId
+                });
+                if (existingMachineUser) {
+                    const isGuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(macId);
+                    const existingIsGuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(existingMachineUser.mac_id || '');
+                    const shouldUpdateMac = isGuid && (!existingIsGuid || existingMachineUser.mac_id !== macId);
+                    const shouldUpdateComp = computerName && (!existingMachineUser.computer_name || existingMachineUser.computer_name !== computerName);
+                    if (shouldUpdateMac || shouldUpdateComp) {
+                        await authModel.updateUserMachineInfo({
+                            user_id: existingMachineUser.user_id,
+                            macId: shouldUpdateMac ? macId : '',
+                            computerName: shouldUpdateComp ? computerName : ''
+                        });
+                    }
+                    const { encoded: existingMachineEncoded } = passwordService.encrypt(existingMachineUser.email, process.env.CRYPTO_PASSWORD);
+                    return res.json({
+                        code: 200,
+                        error: null,
+                        data: {
+                            email: existingMachineUser.email,
+                            crypto_password: existingMachineUser.password || existingMachineEncoded
+                        },
+                        email: existingMachineUser.email,
+                        crypto_password: existingMachineUser.password || existingMachineEncoded,
+                        message: 'Existing machine user reused (1 per PC) !!!'
+                    });
+                }
+
                 const [userDetails] = await authModel.getUserDetailsFromUsers({ email: tempEmail, noAlterEmailCheck: config.CUSTOM_LOGIN_REGISTER_AD_NO_SWAP.includes(organizationId) });
                 if (userDetails) {
                     Logger.error(`-----------Email Already Exist -------- ${tempEmail}`);

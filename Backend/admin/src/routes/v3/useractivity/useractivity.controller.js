@@ -2155,43 +2155,36 @@ class UserActivity {
 
             const [credsData] = await UserActivityModel.getStorageDetail(organization_id);
             if (!credsData) {
-                const fs = require('fs');
-                const path = require('path');
                 const { signScreenshotUrl } = require('../../../utils/helpers/screenshotSigner');
+                const { collectLocalScreenshotsByHour } = require('../../../utils/helpers/localVideoRecorder');
                 const sharedBase = process.env.SHARED_SCREENSHOTS_PATH || '/app/shared_screenshots';
-                const { totalHour, dayFolders } = CloudStorageServices.parseHourRange({ from, to, date, timezone: userData.timezone });
                 const baseUrl = `${req.protocol}://${req.get('host')}/screenshots-static`;
-                const bucketsMap = new Map();
-                for (let h = from; h <= to; h++) {
-                    const hh = String(h).padStart(2, '0');
-                    bucketsMap.set(hh, { t: hh, actual_t: hh, s: [], pageToken: null });
-                }
-                for (const dayFolder of dayFolders) {
-                    const dirPath = path.join(sharedBase, userData.email, dayFolder);
-                    if (!fs.existsSync(dirPath)) continue;
-                    const files = fs.readdirSync(dirPath).filter((f) => /\.(jpg|jpeg|png|gif)$/i.test(f));
-                    for (const fileName of files) {
-                        const match = fileName.match(/(\d{2}-\d{4}-\d{2}-\d{2} \d{2}-\d{2}-\d{2}-\w{3}\.\w+)$/);
-                        const rawName = match ? match[1] : fileName;
-                        const displayTime = Comman.toTimezoneDateofSS(rawName, userData.timezone) || rawName;
-                        const localHourMatch = displayTime.match(/\b(\d{2}):\d{2}:\d{2}\b/);
-                        const hourKey = localHourMatch ? localHourMatch[1] : rawName.slice(0, 2);
-                        if (!bucketsMap.has(hourKey)) continue;
-                        const fileStat = fs.statSync(path.join(dirPath, fileName));
-                        const link = signScreenshotUrl(baseUrl, userData.email, dayFolder, fileName);
-                        bucketsMap.get(hourKey).s.push({
-                            id: fileName,
-                            actual: rawName,
-                            name: displayTime,
+                const tz = userData.timezone || 'America/Bogota';
+                const hourBuckets = collectLocalScreenshotsByHour({
+                    sharedBase,
+                    email: userData.email,
+                    date,
+                    fromHour: from,
+                    toHour: to,
+                    timezone: tz,
+                });
+                const screenshotsData = [];
+                for (const [hh, frames] of hourBuckets.entries()) {
+                    const items = frames.map((f) => {
+                        const link = signScreenshotUrl(baseUrl, userData.email, f.dayFolder, f.fileName);
+                        return {
+                            id: f.fileName,
+                            actual: f.fileName,
+                            name: f.displayTime,
                             link,
                             viewLink: link,
                             thumbnailLink: link,
-                            created_at: fileStat.birthtime,
-                            updated_at: fileStat.mtime,
-                        });
-                    }
+                            created_at: f.stat.birthtime,
+                            updated_at: f.stat.mtime,
+                        };
+                    });
+                    screenshotsData.push({ t: hh, actual_t: hh, s: items, pageToken: null });
                 }
-                const screenshotsData = Array.from(bucketsMap.values());
                 return sendResponse(res, 200, { storage: 'LOCAL', name: userData.name + ' ' + userData.full_name, photo_path: userData.photo_path, email: userData.email, user_id: userData.id, screenshot: screenshotsData }, 'Screenshot data ', null);
             }
 
@@ -2255,7 +2248,8 @@ class UserActivity {
         const { organization_id, language } = req.decoded;
         const { user_id } = req.body;
         const from = parseInt(req.body.from_hour, 10);
-        const to = parseInt(req.body.to_hour, 10) - 1;
+        const rawTo = parseInt(req.body.to_hour, 10);
+        const to = (rawTo === 0 && from === 23) ? 23 : (rawTo - 1);
         const date = moment(req.body.date).format('YYYY-MM-DD'); //'2019-12-23'
         const limit = req.body.limit || 12;
         const pageToken = req.body.pageToken || '';
@@ -2272,7 +2266,54 @@ class UserActivity {
 
             const [credsData] = await UserActivityModel.getStorageDetail(organization_id);
             if (!credsData) {
-                return sendResponse(res, 200, { storage: 'LOCAL', name: userData.name + ' ' + userData.full_name, photo_path: userData.photo_path, email: userData.email, user_id: userData.id, screenRecords: [] }, 'Screen records data ', null);
+                const { signScreenshotUrl } = require('../../../utils/helpers/screenshotSigner');
+                const { collectLocalScreenshotsByHour, buildHourlyVideoIfNeeded } = require('../../../utils/helpers/localVideoRecorder');
+                const sharedBase = process.env.SHARED_SCREENSHOTS_PATH || '/app/shared_screenshots';
+                const baseUrl = `${req.protocol}://${req.get('host')}/screenshots-static`;
+                const tz = userData.timezone || 'America/Bogota';
+
+                const hourBuckets = collectLocalScreenshotsByHour({
+                    sharedBase,
+                    email: userData.email,
+                    date,
+                    fromHour: from,
+                    toHour: to,
+                    timezone: tz,
+                });
+
+                const screenRecords = [];
+                for (const [hh, frames] of hourBuckets.entries()) {
+                    const slot = { t: hh, actual_t: hh, s: [], pageToken: null };
+                    if (frames.length > 0) {
+                        try {
+                            const video = await buildHourlyVideoIfNeeded({
+                                sharedBase,
+                                email: userData.email,
+                                date,
+                                hourKey: hh,
+                                frames,
+                            });
+                            if (video) {
+                                const link = signScreenshotUrl(baseUrl, userData.email, video.dayFolder, video.fileName);
+                                slot.s.push({
+                                    id: video.fileName,
+                                    name: `${Number(hh)}-${date} ${video.firstTime}.mp4`,
+                                    link,
+                                    resolution: '1280x720',
+                                    frameCount: video.frameCount,
+                                    durationSec: video.durationSec,
+                                    sizeBytes: video.sizeBytes,
+                                });
+                            }
+                        } catch (vidErr) {
+                            Logger.error(`[LOCAL-VIDEO] Failed compiling ${userData.email} ${date} ${hh}h: ${vidErr.message}`);
+                        }
+                    }
+                    if (slot.s.length > 0) {
+                        screenRecords.push(slot);
+                    }
+                }
+                return sendResponse(res, 200, { storage: 'LOCAL', name: userData.name + ' ' + userData.full_name, photo_path: userData.photo_path, email: userData.email, user_id: userData.id, screenRecords }, 'Screen records data ', null);
             }
 
             const creds = JSON.parse(credsData.creds);

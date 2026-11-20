@@ -4,7 +4,7 @@
 ; ==============================================================================
 
 #define MyAppName "ACA Advisor Agent"
-#define MyAppVersion "3.0.4"
+#define MyAppVersion "3.0.6"
 #define MyAppPublisher "ACA ADVISOR S.A.S."
 #define MyAppURL "https://acaadvisor.com"
 #define MyAppExeName "aca-agent.exe"
@@ -33,12 +33,14 @@ Compression=lzma2/ultra64
 SolidCompression=yes
 WizardStyle=modern
 PrivilegesRequired=admin
-ArchitecturesInstallIn64BitMode=x64
+ArchitecturesInstallIn64BitMode=x64compatible
 CloseApplications=force
 
-; Personalización visual de ACA ADVISOR
+; Personalización visual de ACA ADVISOR (Modo Claro y Oscuro)
 WizardImageFile=wizard-side.png
+WizardImageFileDynamicDark=wizard-side.png
 WizardSmallImageFile=logo-isotype.png
+WizardSmallImageFileDynamicDark=logo-isotype.png
 
 [Languages]
 Name: "spanish"; MessagesFile: "compiler:Languages\Spanish.isl"
@@ -68,10 +70,11 @@ Name: "{group}\Desinstalar {#MyAppName}"; Filename: "{uninstallexe}"
 Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: desktopicon; IconFilename: "{app}\aca-advisor.ico"
 
 [Registry]
-; Inicio automático en arranque de Windows (Agente Visible ACA ADVISOR + Live Stream + DLP)
-Root: HKLM; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: string; ValueName: "ACAAdvisorAgent"; ValueData: """{app}\{#MyAppExeName}"""; Flags: uninsdeletevalue; Tasks: autostart
-Root: HKLM; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: string; ValueName: "ACAAdvisorLiveStream"; ValueData: "powershell.exe -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File ""{app}\live-stream.ps1"""; Flags: uninsdeletevalue; Tasks: autostart
-Root: HKLM; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: string; ValueName: "ACAAdvisorDLP"; ValueData: "powershell.exe -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -STA -File ""{app}\dlp-monitor.ps1"""; Flags: uninsdeletevalue; Tasks: autostart
+; Inicio automático unificado en arranque de Windows (Launcher Watchdog: Agente Visible + Live Stream + DLP)
+Root: HKLM; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueName: "ACAAdvisorAgent"; Flags: deletevalue
+Root: HKLM; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueName: "ACAAdvisorLiveStream"; Flags: deletevalue
+Root: HKLM; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueName: "ACAAdvisorDLP"; Flags: deletevalue
+Root: HKLM; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: string; ValueName: "ACAAdvisorLauncher"; ValueData: "powershell.exe -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File ""{app}\agent-launcher.ps1"""; Flags: uninsdeletevalue; Tasks: autostart
 
 ; El lanzamiento de aca-agent.exe (interfaz visible) y live-stream.ps1 lo gestiona register.ps1 al finalizar ssPostInstall
 
@@ -170,8 +173,8 @@ begin
     // Escribir intervalos optimizados y modo personal (login visible ACA ADVISOR S.A.S.)
     RegWriteDWordValue(HKCU, 'Software\screen\empm\appSettings', 'dataSendingPeriodSec', 30);
     RegWriteDWordValue(HKLM, 'Software\screen\empm\appSettings', 'dataSendingPeriodSec', 30);
-    RegWriteDWordValue(HKCU, 'Software\screen\empm\appSettings', 'screenshotQuality', 50);
-    RegWriteDWordValue(HKLM, 'Software\screen\empm\appSettings', 'screenshotQuality', 50);
+    RegWriteDWordValue(HKCU, 'Software\screen\empm\appSettings', 'screenshotQuality', 82);
+    RegWriteDWordValue(HKLM, 'Software\screen\empm\appSettings', 'screenshotQuality', 82);
     RegWriteStringValue(HKCU, 'Software\screen\empm\appSettings', 'mode', 'personal');
     RegWriteStringValue(HKLM, 'Software\screen\empm\appSettings', 'mode', 'personal');
     RegWriteStringValue(HKCU, 'Software\screen\empm\appSettings\from_remote', 'account_type', 'personal');

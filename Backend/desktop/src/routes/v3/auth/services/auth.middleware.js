@@ -42,9 +42,6 @@ class AuthMiddlewareService {
               req.decoded = userMetaData.data;
               const agentTtl = Math.max(parseInt(process.env.MAX_REQUEST_ALLOWED_TIMEFRAME) || 300, 300);
               await redis.setAsync(`${userData.user_id}_agent_request`, 1, 'EX', agentTtl);
-              if (userMetaData.data.employee_id && String(userMetaData.data.employee_id) !== String(userData.user_id)) {
-                await redis.setAsync(`${userMetaData.data.employee_id}_agent_request`, 1, 'EX', agentTtl);
-              }
               next();
             } else {
               return next(new errorHandler('Invalid token', 401));
@@ -100,7 +97,7 @@ const sendPlanExpiryResponse = (req, res, next) => {
               },
               "screenshotPeriodSec": 20,
               "screenshotPeriodInSeconds": 20,
-              "screenshotQuality": 50,
+              "screenshotQuality": 82,
               "dataSendingPeriodSec": 30,
               "features": {
                 "application_usage": "1",

@@ -23,6 +23,7 @@ class AuthModel {
         let query = `
         SELECT
         u.id as user_id, u.first_name, u.last_name, u.email, u.password, u.status, u.a_email,e.system_type, u.username,
+        u.mac_id, u.computer_name,
         e.id as id, e.id as employee_id, e.timezone, e.custom_tracking_rule, e.location_id, e.organization_id, e.organization_id as admin_id,
         JSON_EXTRACT(os.rules,'$.logoutOptions') as logoutOptions,s.data AS shift,JSON_EXTRACT(os.rules,'$.pack') as pack,
         ol.name as location_name, e.department_id, od.name as department_name,r.name as role, ur.role_id,o.language,o.weekday_start,
@@ -112,7 +113,8 @@ class AuthModel {
     getUserDetailsById(id) {
         const query = `
             SELECT
-                u.id as user_id, u.first_name, u.last_name, u.email, u.password, u.status, u.a_email,e.system_type,
+                u.id as user_id, u.first_name, u.last_name, u.email, u.password, u.status, u.a_email,e.system_type, u.username,
+                u.mac_id, u.computer_name,
                 e.id as id, e.id as employee_id, e.timezone, e.custom_tracking_rule, e.location_id, e.organization_id, e.organization_id as admin_id,
                 JSON_EXTRACT(os.rules,'$.logoutOptions') as logoutOptions,s.data AS shift,JSON_EXTRACT(os.rules,'$.pack') as pack,
                 ol.name as location_name, e.department_id, od.name as department_name,r.name as role, ur.role_id,o.language,o.weekday_start,
@@ -465,26 +467,80 @@ class AuthModel {
         return mySql.query(query, [email, email, email]);
     }
 
-    async getLatestEmployeeByDevice(computerName) {
-        if (computerName) {
-            const [byComp] = await mySql.query(
-                `SELECT u.id as user_id, u.email, u.password, u.username, e.id as employee_id
+    async getLatestEmployeeByDevice(computerName, macId = '') {
+        const cleanMac = (macId || '').toString().trim();
+        const cleanComp = (computerName || '').toString().trim();
+        if (cleanMac) {
+            const [byMac] = await mySql.query(
+                `SELECT u.id as user_id, u.email, u.password, u.username, u.computer_name, u.mac_id, e.id as employee_id
                  FROM users u
                  JOIN employees e ON e.user_id = u.id
-                 WHERE (u.computer_name = ? OR u.computer_name LIKE ?) AND e.is_mobile = 0
+                 WHERE LOWER(TRIM(u.mac_id)) = LOWER(?) AND e.is_mobile = 0
                  ORDER BY e.id DESC LIMIT 1`,
-                [computerName, `%${computerName}%`]
+                [cleanMac]
+            );
+            if (byMac) return byMac;
+        }
+        if (cleanComp) {
+            const [byComp] = await mySql.query(
+                `SELECT u.id as user_id, u.email, u.password, u.username, u.computer_name, u.mac_id, e.id as employee_id
+                 FROM users u
+                 JOIN employees e ON e.user_id = u.id
+                 WHERE LOWER(TRIM(u.computer_name)) = LOWER(?) AND e.is_mobile = 0
+                 ORDER BY e.id DESC LIMIT 1`,
+                [cleanComp]
             );
             if (byComp) return byComp;
         }
-        const [latest] = await mySql.query(
-            `SELECT u.id as user_id, u.email, u.password, u.username, e.id as employee_id
-             FROM users u
-             JOIN employees e ON e.user_id = u.id
-             WHERE e.is_mobile = 0
-             ORDER BY e.id DESC LIMIT 1`
-        );
-        return latest || null;
+        return null;
+    }
+
+    async getUserByMachineIdOrComputerName({ macId = '', computerName = '', organizationId = 1 }) {
+        const cleanMac = (macId || '').toString().trim();
+        const cleanComp = (computerName || '').toString().trim();
+        if (cleanMac) {
+            const [byMac] = await mySql.query(
+                `SELECT u.id as user_id, e.id as employee_id, u.email, u.a_email, u.password,
+                        u.first_name, u.last_name, u.username, u.computer_name, u.mac_id, u.active_directory_meta
+                 FROM users u
+                 JOIN employees e ON e.user_id = u.id
+                 WHERE LOWER(TRIM(u.mac_id)) = LOWER(?) AND e.organization_id = ? AND e.is_mobile = 0
+                 ORDER BY e.id DESC LIMIT 1`,
+                [cleanMac, organizationId]
+            );
+            if (byMac) return byMac;
+        }
+        if (cleanComp) {
+            const [byComp] = await mySql.query(
+                `SELECT u.id as user_id, e.id as employee_id, u.email, u.a_email, u.password,
+                        u.first_name, u.last_name, u.username, u.computer_name, u.mac_id, u.active_directory_meta
+                 FROM users u
+                 JOIN employees e ON e.user_id = u.id
+                 WHERE LOWER(TRIM(u.computer_name)) = LOWER(?) AND e.organization_id = ? AND e.is_mobile = 0
+                 ORDER BY e.id DESC LIMIT 1`,
+                [cleanComp, organizationId]
+            );
+            if (byComp) return byComp;
+        }
+        return null;
+    }
+
+    async updateUserMachineInfo({ user_id, macId = '', computerName = '' }) {
+        const updates = [];
+        const values = [];
+        const cleanMac = (macId || '').toString().trim();
+        const cleanComp = (computerName || '').toString().trim();
+        if (cleanMac) {
+            updates.push('mac_id = ?');
+            values.push(cleanMac);
+        }
+        if (cleanComp) {
+            updates.push('computer_name = ?');
+            values.push(cleanComp.substring(0, 50));
+        }
+        if (!updates.length || !user_id) return;
+        values.push(user_id);
+        return mySql.query(`UPDATE ${this.userTable} SET ${updates.join(', ')} WHERE id = ?`, values);
     }
 
     updateUserStatus (user_id) {

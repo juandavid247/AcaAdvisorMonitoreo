@@ -163,30 +163,29 @@ export class ActivityService {
                     const appUsage = latestItem?.appUsage || [];
                     const latestApp = appUsage[appUsage.length - 1];
                     if (latestApp) {
-                        const userId = (userData as any).user_id || userData.id || userData.employee_id;
-                        const empId = userData.employee_id || userId;
-                        const appTitle = latestApp.title || (latestApp as any).app || "Activo";
-                        const appName = (latestApp as any).app || "Aplicacion";
-                        const activityMsg = {
-                            message: "sending_agent_activity_to_users",
-                            organization_id: userData.organization_id,
-                            parsedMessage: {
-                                type: "realtime_usage_history_status",
-                                user_id: userId,
-                                employee_id: empId,
-                                windText: appTitle,
-                                appName: appName,
-                                currentUrl: latestApp.url || "",
-                                latitude: "",
-                                longitude: ""
-                            }
-                        };
-                        const redisClient = this.redisService.getClient();
-                        await redisClient.set(`latest_activity:${userId}`, JSON.stringify(activityMsg.parsedMessage), 'EX', 3600);
-                        if (String(empId) !== String(userId)) {
-                            await redisClient.set(`latest_activity:${empId}`, JSON.stringify(activityMsg.parsedMessage), 'EX', 3600);
+                        const userId = Number((userData as any).user_id);
+                        if (userId) {
+                            const appTitle = latestApp.title || (latestApp as any).app || "Activo";
+                            const appName = (latestApp as any).app || "Aplicacion";
+                            const activityMsg = {
+                                message: "sending_agent_activity_to_users",
+                                organization_id: userData.organization_id,
+                                parsedMessage: {
+                                    type: "realtime_usage_history_status",
+                                    user_id: userId,
+                                    device_id: (userData as any).mac_id || "",
+                                    computer_name: (userData as any).computer_name || "",
+                                    windText: appTitle,
+                                    appName: appName,
+                                    currentUrl: latestApp.url || "",
+                                    latitude: "",
+                                    longitude: ""
+                                }
+                            };
+                            const redisClient = this.redisService.getClient();
+                            await redisClient.set(`latest_activity:${userId}`, JSON.stringify(activityMsg.parsedMessage), 'EX', 3600);
+                            await redisClient.publish("channel-update-realtime-activity", JSON.stringify(activityMsg));
                         }
-                        await redisClient.publish("channel-update-realtime-activity", JSON.stringify(activityMsg));
                     }
                 } catch (pubErr) {
                     console.error('[ACTIVITY] Error publishing realtime activity:', pubErr.message);

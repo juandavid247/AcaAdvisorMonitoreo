@@ -69,6 +69,8 @@ export default function ScreenCastTab({ employee }) {
   const [isRecording,  setIsRecording]  = useState(false);
   const [canvasHeight, setCanvasHeight] = useState(DEFAULT_CANVAS_HEIGHT);
   const [sizeKey,      setSizeKey]      = useState("small");
+  const [streamQuality, setStreamQuality] = useState("hd");
+  const streamQualityRef = useRef("hd");
 
   // ── Imperative refs (no re-render needed) ─────────────────────────────────
   const socketRef            = useRef(null);
@@ -261,7 +263,7 @@ export default function ScreenCastTab({ employee }) {
     const data = event.data;
 
     if (data === "User authenticated successfully") {
-      send({ type: "image_request",      requested_user_id: userIdRef.current });
+      send({ type: "image_request",      requested_user_id: userIdRef.current, quality: streamQualityRef.current });
       send({ type: "check_agent_status", requested_user_id: userIdRef.current });
 
     } else if (data.includes("Image request received for user")) {
@@ -289,7 +291,11 @@ export default function ScreenCastTab({ employee }) {
 
     } else {
       try {
-        processImageInCanvas(extractScreenData(JSON.parse(data)));
+        const parsed = JSON.parse(data);
+        if (parsed?.user_id && userIdRef.current && Number(parsed.user_id) !== Number(userIdRef.current)) {
+          return;
+        }
+        processImageInCanvas(extractScreenData(parsed));
       } catch (err) {
         console.error("ScreenCast: parse error", err);
       }
@@ -553,6 +559,34 @@ export default function ScreenCastTab({ employee }) {
           <Gauge size={12} className="inline" />
           {agentLatency != null ? `Agent: ${agentLatency} ms` : "Agent: — ms"}
         </Badge>
+
+        {/* Stream quality selector */}
+        <div className="flex items-center gap-1 bg-gray-50 border border-gray-200 rounded-full px-2 py-1" title="Calidad de transmisión">
+          {[
+            { key: "sd", label: "SD" },
+            { key: "hd", label: "720p HD" },
+            { key: "fhd", label: "1080p" },
+          ].map((q) => (
+            <button
+              key={q.key}
+              type="button"
+              onClick={() => {
+                streamQualityRef.current = q.key;
+                setStreamQuality(q.key);
+                if (isConnected && userIdRef.current) {
+                  send({ type: "set_stream_quality", requested_user_id: userIdRef.current, quality: q.key });
+                }
+              }}
+              className={`text-xs px-2.5 py-0.5 rounded-full transition-colors ${
+                streamQuality === q.key
+                  ? "bg-blue-600 text-white font-semibold"
+                  : "text-gray-600 hover:text-blue-600"
+              }`}
+            >
+              {q.label}
+            </button>
+          ))}
+        </div>
 
         {/* Screen size selector */}
         <div className="flex items-center gap-1 bg-gray-50 border border-gray-200 rounded-full px-2 py-1">

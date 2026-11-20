@@ -55,6 +55,7 @@ export class AuthService {
                 try {
                     const rows: any[] = await this.sequelize.query(
                         `SELECT u.id AS user_id, u.first_name, u.last_name, u.email, u.status, u.username,
+                                u.mac_id, u.computer_name,
                                 e.id AS employee_id, e.id AS id, e.organization_id, e.department_id, e.location_id,
                                 COALESCE(e.timezone, 'America/Bogota') AS timezone
                          FROM users u
@@ -74,6 +75,8 @@ export class AuthService {
                             email: r.email,
                             a_email: r.email,
                             username: r.username,
+                            mac_id: r.mac_id || '',
+                            computer_name: r.computer_name || '',
                             status: r.status,
                             organization_id: r.organization_id || 1,
                             department_id: r.department_id || 1,
@@ -97,7 +100,7 @@ export class AuthService {
                             }
                         };
                         userData = JSON.stringify(hydrated);
-                        await this.redisService.getClient().set(String(decoded.user_id), userData);
+                        await this.redisService.getClient().set(String(decoded.user_id), userData, 'EX', 60 * 60 * 24 * 7);
                         console.log(`[AuthService] Auto-rehydrated Redis session for user_id=${decoded.user_id} (employee_id=${r.employee_id})`);
                     }
                 } catch (rehydrateErr) {
@@ -107,14 +110,6 @@ export class AuthService {
 
             const agentTtl = Math.max(+(process.env.MAX_REQUEST_ALLOWED_TIMEFRAME || 300), 300);
             await this.redisService.getClient().set(`${decoded.user_id}_agent_request`, 1, 'EX', agentTtl);
-            if (userData) {
-                try {
-                    const parsedUser = JSON.parse(userData);
-                    if (parsedUser.employee_id && String(parsedUser.employee_id) !== String(decoded.user_id)) {
-                        await this.redisService.getClient().set(`${parsedUser.employee_id}_agent_request`, 1, 'EX', agentTtl);
-                    }
-                } catch (e) {}
-            }
             return userData;
             // return await this.redisService.getClient().get(decoded.user_id);
         } else {

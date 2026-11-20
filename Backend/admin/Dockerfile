@@ -1,7 +1,7 @@
 FROM node:20-alpine
 
-# Install native canvas & font dependencies for skia-canvas / sharp
-RUN apk add --no-cache fontconfig freetype cairo pango glib ttf-dejavu
+# Install native canvas, font dependencies and ffmpeg for 720p local screen recording videos
+RUN apk add --no-cache fontconfig freetype cairo pango glib ttf-dejavu ffmpeg
 
 WORKDIR /app/Backend/admin
 

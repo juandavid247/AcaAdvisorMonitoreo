@@ -40,13 +40,15 @@ export const parseImageStream = (raw) => {
 
     const sortedIndices = Object.keys(screens).sort((a, b) => Number(a) - Number(b));
     return {
-        userId: raw.user_id,
-        employeeId: raw.employee_id,
+        userId: Number(raw.user_id) || null,
+        deviceId: raw.device_id || "",
+        computerName: raw.computer_name || "",
+        quality: raw.quality || "",
         screens: sortedIndices.map((i) => screens[i]),
     };
 };
 
-const drawSingleScreen = (canvas, screenData) => {
+const drawSingleScreen = (canvas, screenData, expectedUserId = null) => {
     if (!canvas || !screenData?.image) return;
 
     const ctx = canvas.getContext("2d");
@@ -64,15 +66,20 @@ const drawSingleScreen = (canvas, screenData) => {
     if (canvas.width !== origW) canvas.width = origW;
     if (canvas.height !== origH) canvas.height = origH;
 
+    const seq = (canvas.__renderSeq || 0) + 1;
+    canvas.__renderSeq = seq;
+
     const img = new Image();
     img.onload = () => {
+        if (canvas.__renderSeq !== seq) return;
+        if (expectedUserId != null && canvas.dataset?.userId && Number(canvas.dataset.userId) !== Number(expectedUserId)) return;
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         ctx.drawImage(img, 0, 0, origW, origH);
     };
     img.src = screenData.image.startsWith("data:") ? screenData.image : `data:image/jpeg;base64,${screenData.image}`;
 };
 
-const drawDualScreen = (canvas, screen1, screen2) => {
+const drawDualScreen = (canvas, screen1, screen2, expectedUserId = null) => {
     if (!canvas || !screen1?.image || !screen2?.image) return;
 
     const ctx = canvas.getContext("2d");
@@ -93,12 +100,17 @@ const drawDualScreen = (canvas, screen1, screen2) => {
     if (canvas.width !== neededW) canvas.width = neededW;
     if (canvas.height !== origH) canvas.height = origH;
 
+    const seq = (canvas.__renderSeq || 0) + 1;
+    canvas.__renderSeq = seq;
+
     const img1 = new Image();
     const img2 = new Image();
     let loaded = 0;
 
     const drawIfReady = () => {
         if (++loaded < 2) return;
+        if (canvas.__renderSeq !== seq) return;
+        if (expectedUserId != null && canvas.dataset?.userId && Number(canvas.dataset.userId) !== Number(expectedUserId)) return;
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         ctx.drawImage(img1, 0, 0, origW, origH);
         ctx.drawImage(img2, origW, 0, origW, origH);
@@ -116,6 +128,7 @@ export const drawOfflinePlaceholder = (canvas) => {
     const container = canvas.parentElement;
     if (!container) return;
 
+    const isDark = typeof document !== "undefined" && document.documentElement.classList.contains("dark");
     const displayWidth = container.clientWidth;
     const displayHeight = displayWidth / (16 / 9);
 
@@ -124,9 +137,9 @@ export const drawOfflinePlaceholder = (canvas) => {
     canvas.width = 320;
     canvas.height = 180;
 
-    ctx.fillStyle = "#f1f5f9";
+    ctx.fillStyle = isDark ? "#0F172A" : "#f1f5f9";
     ctx.fillRect(0, 0, 320, 180);
-    ctx.fillStyle = "#94a3b8";
+    ctx.fillStyle = isDark ? "#64748b" : "#94a3b8";
     ctx.font = "14px sans-serif";
     ctx.textAlign = "center";
     ctx.fillText("Offline", 160, 95);
@@ -154,9 +167,18 @@ export const setModalCanvas = (canvas, userId) => {
     modalCanvas = canvas;
     modalUserId = Number(userId);
     modalSelectedScreen = 0;
+    if (canvas) {
+        canvas.dataset.userId = String(modalUserId);
+        canvas.__renderSeq = (canvas.__renderSeq || 0) + 1;
+        const ctx = canvas.getContext("2d");
+        if (ctx) ctx.clearRect(0, 0, canvas.width, canvas.height);
+    }
 };
 
 export const clearModalCanvas = () => {
+    if (modalCanvas) {
+        modalCanvas.__renderSeq = (modalCanvas.__renderSeq || 0) + 1;
+    }
     modalCanvas = null;
     modalUserId = null;
     modalSelectedScreen = 0;
@@ -168,31 +190,31 @@ export const setModalSelectedScreen = (idx) => {
 
 /**
  * Called by the store when an image_stream message arrives.
+ * Strictly routes by canonical user_id (users.id) so streams can never cross.
  * Returns screen count.
  */
 export const renderScreen = (parsed, isDualScreen = false) => {
-    const { userId, employeeId, screens } = parsed;
-    if (!screens.length) return 0;
+    const { userId, screens } = parsed;
+    if (!screens.length || !userId) return 0;
     const numId = Number(userId);
-    const numEmpId = employeeId ? Number(employeeId) : null;
 
-    // Draw to card canvas (support both uId and employeeId keys)
-    const entry = canvasRegistry.get(numId) || (numEmpId ? canvasRegistry.get(numEmpId) : null);
+    // Draw to card canvas strictly by canonical user_id
+    const entry = canvasRegistry.get(numId);
     if (entry?.canvas) {
         if (isDualScreen && screens.length >= 2) {
-            drawDualScreen(entry.canvas, screens[0], screens[1]);
+            drawDualScreen(entry.canvas, screens[0], screens[1], numId);
         } else {
-            drawSingleScreen(entry.canvas, screens[0]);
+            drawSingleScreen(entry.canvas, screens[0], numId);
         }
     }
 
-    // Draw to modal canvas if this user is selected
-    if (modalCanvas && (Number(modalUserId) === numId || (numEmpId && Number(modalUserId) === numEmpId))) {
+    // Draw to modal canvas strictly if modalUserId matches canonical user_id
+    if (modalCanvas && Number(modalUserId) === numId) {
         if (isDualScreen && screens.length >= 2) {
-            drawDualScreen(modalCanvas, screens[0], screens[1]);
+            drawDualScreen(modalCanvas, screens[0], screens[1], numId);
         } else {
             const screenIdx = Math.min(modalSelectedScreen, screens.length - 1);
-            drawSingleScreen(modalCanvas, screens[screenIdx]);
+            drawSingleScreen(modalCanvas, screens[screenIdx], numId);
         }
     }
 
@@ -201,8 +223,12 @@ export const renderScreen = (parsed, isDualScreen = false) => {
 
 // --- Streaming control ---
 
-export const requestStream = (safeSendFn, userId) => {
-    safeSendFn({ type: "image_request", requested_user_id: userId });
+export const requestStream = (safeSendFn, userId, quality = "sd") => {
+    safeSendFn({ type: "image_request", requested_user_id: userId, quality });
+};
+
+export const setStreamQuality = (safeSendFn, userId, quality = "sd") => {
+    safeSendFn({ type: "set_stream_quality", requested_user_id: userId, quality });
 };
 
 export const stopStream = (safeSendFn, userId) => {

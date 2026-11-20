@@ -5,6 +5,7 @@ import {
     parseImageStream,
     renderScreen,
     requestStream,
+    setStreamQuality,
     stopStream,
     setModalCanvas,
     clearModalCanvas,
@@ -54,6 +55,8 @@ export const useLiveMonitoringStore = create((set, get) => ({
     modalAgent: null,
     modalScreenCount: 0,
     modalSelectedScreen: 0,
+    modalQuality: "hd",
+    modalResolution: "",
     recordings: [],
     recordingsError: null,
     recordingsLoading: false,
@@ -189,10 +192,10 @@ export const useLiveMonitoringStore = create((set, get) => ({
     _updateOnlineStatus: (onlineUserIds) => {
         const onlineSet = new Set((onlineUserIds || []).map(Number));
 
-        // Update agent status in state (pure state update, no side effects)
+        // Update agent status in state strictly by canonical uId (users.id)
         set((state) => ({
             agents: state.agents.map((agent) => {
-                const isOnline = onlineSet.has(Number(agent.uId)) || onlineSet.has(Number(agent.id));
+                const isOnline = onlineSet.has(Number(agent.uId));
                 const newStatus = isOnline ? "Online" : "Offline";
                 if (agent.status === newStatus) return agent;
                 return { ...agent, status: newStatus };
@@ -202,7 +205,7 @@ export const useLiveMonitoringStore = create((set, get) => ({
         // Update modal agent's online status if open
         const { modalAgent } = get();
         if (modalAgent) {
-            const isModalAgentOnline = onlineSet.has(Number(modalAgent.uId)) || onlineSet.has(Number(modalAgent.id));
+            const isModalAgentOnline = onlineSet.has(Number(modalAgent.uId));
             const currentStatus = modalAgent.status;
             const newStatus = isModalAgentOnline ? "Online" : "Offline";
             if (currentStatus !== newStatus) {
@@ -217,38 +220,60 @@ export const useLiveMonitoringStore = create((set, get) => ({
 
     _handleImageStream: (raw) => {
         const parsed = parseImageStream(raw);
+        if (!parsed.userId) return;
         const screenCount = renderScreen(parsed, false);
 
-        const { modalAgent } = get();
-        if (modalAgent && (Number(modalAgent.uId) === Number(parsed.userId) || Number(modalAgent.id) === Number(parsed.userId) || (parsed.employeeId && (Number(modalAgent.id) === Number(parsed.employeeId) || Number(modalAgent.uId) === Number(parsed.employeeId))))) {
-            set({ modalScreenCount: screenCount });
+        const { modalAgent, modalResolution } = get();
+        if (modalAgent && Number(modalAgent.uId) === Number(parsed.userId)) {
+            const first = parsed.screens?.[0];
+            const resLabel = first?.width && first?.height ? `${first.width}×${first.height}` : modalResolution;
+            set({ modalScreenCount: screenCount, modalResolution: resLabel });
         }
     },
 
-    // --- Streaming control (called by IntersectionObserver in AgentCard) ---
+    // --- Streaming control (called by IntersectionObserver in AgentCard: lightweight SD) ---
 
-    startStreaming: (userId) => requestStream(safeSend, userId),
+    startStreaming: (userId) => requestStream(safeSend, userId, "sd"),
     stopStreaming: (userId) => stopStream(safeSend, userId),
 
-    // --- Modal ---
+    // --- Modal (automatically upgrades to 720p HD on open and downgrades back to SD on close) ---
 
     openModal: (agent) => {
+        const prev = get().modalAgent;
+        if (prev && Number(prev.uId) !== Number(agent.uId)) {
+            setStreamQuality(safeSend, prev.uId, "sd");
+        }
         set({
             modalAgent: agent,
             modalScreenCount: 0,
             modalSelectedScreen: 0,
+            modalQuality: "hd",
+            modalResolution: "",
             recordings: [],
             recordingsError: null,
         });
-        requestStream(safeSend, agent.uId);
+        requestStream(safeSend, agent.uId, "hd");
+    },
+
+    changeModalQuality: (quality) => {
+        const { modalAgent } = get();
+        if (!modalAgent) return;
+        set({ modalQuality: quality });
+        setStreamQuality(safeSend, modalAgent.uId, quality);
     },
 
     closeModal: () => {
+        const { modalAgent } = get();
+        if (modalAgent) {
+            setStreamQuality(safeSend, modalAgent.uId, "sd");
+        }
         clearModalCanvas();
         set({
             modalAgent: null,
             modalScreenCount: 0,
             modalSelectedScreen: 0,
+            modalQuality: "hd",
+            modalResolution: "",
             recordings: [],
             recordingsError: null,
         });
